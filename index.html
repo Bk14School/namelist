@@ -58,7 +58,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 /* ── Layout ── */
 .layout{display:flex;min-height:calc(100vh - var(--topbar))}
 
-/* Sidebar — desktop */
+/* Sidebar — desktop only */
 .sidebar{width:210px;background:#fff;border-right:1px solid var(--gray-200);padding:12px 0;flex-shrink:0;position:sticky;top:var(--topbar);height:calc(100vh - var(--topbar));overflow-y:auto}
 .sidebar-label{font-size:10px;font-weight:600;color:var(--gray-500);letter-spacing:.08em;text-transform:uppercase;padding:8px 16px 4px}
 .cls-btn{width:100%;text-align:left;padding:8px 16px;border:none;background:transparent;font-family:'Sarabun',sans-serif;font-size:14px;color:var(--gray-700);cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .12s;touch-action:manipulation;min-height:40px}
@@ -67,14 +67,21 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 .cls-btn .cb{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--gray-100);color:var(--gray-500);flex-shrink:0}
 .cls-btn.active .cb{background:var(--blue-mid);color:var(--blue)}
 
-/* Mobile bottom nav for class selection */
-.mobile-cls-bar{display:none;overflow-x:auto;gap:6px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--gray-200);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+/* Mobile class scroll bar — แสดงแทน sidebar บนมือถือ */
+.mobile-cls-bar{display:none;overflow-x:auto;gap:6px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--gray-200);-webkit-overflow-scrolling:touch;scrollbar-width:none;position:sticky;top:var(--topbar);z-index:100}
 .mobile-cls-bar::-webkit-scrollbar{display:none}
 .mobile-cls-bar.show{display:flex}
-.mcls-btn{flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid var(--gray-200);background:#fff;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--gray-700);cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.mcls-btn{flex-shrink:0;padding:5px 14px;border-radius:20px;border:1px solid var(--gray-200);background:#fff;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--gray-700);cursor:pointer;white-space:nowrap;touch-action:manipulation;min-height:32px}
 .mcls-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 
 .content{flex:1;padding:16px;overflow-x:hidden;min-width:0}
+
+/* ── Mobile: ซ่อน sidebar ใช้ mobile-cls-bar แทน ── */
+@media(max-width:767px){
+  .sidebar{display:none!important}
+  .layout{display:block}
+  .content{padding:12px}
+}
 
 /* ── Screens ── */
 .screen{display:none}
@@ -85,12 +92,17 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 .spinner{width:26px;height:26px;border:2px solid var(--gray-200);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
 
 /* ── Stats ── */
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
 .stat-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:10px 12px;box-shadow:var(--shadow-sm)}
 .stat-label{font-size:10px;color:var(--gray-500);margin-bottom:4px}
 .stat-val{font-size:18px;font-weight:600;font-family:'Kanit',sans-serif}
 .stat-val.blue{color:var(--blue)}.stat-val.pink{color:var(--pink)}.stat-val.green{color:var(--green)}
-@media(max-width:480px){
+@media(max-width:767px){
+  .stats-row{grid-template-columns:repeat(4,1fr);gap:6px}
+  .stat-card{padding:8px 10px}
+  .stat-val{font-size:16px}
+}
+@media(max-width:400px){
   .stats-row{grid-template-columns:repeat(2,1fr)}
 }
 
@@ -102,9 +114,10 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 .vbtn{font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--gray-500);cursor:pointer;white-space:nowrap;transition:all .15s;touch-action:manipulation;flex-shrink:0}
 .vbtn.active{background:#fff;color:var(--blue);font-weight:500;box-shadow:var(--shadow-sm)}
 .tright{display:flex;gap:6px;flex-shrink:0}
-@media(max-width:480px){
+@media(max-width:767px){
   .tlabel{display:none}
-  .toolbar{padding:8px}
+  .toolbar{padding:7px 8px;gap:6px;margin-bottom:10px}
+  .vbtn{font-size:11px;padding:4px 8px}
 }
 
 /* ── Table ── */
@@ -114,9 +127,14 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 .cnt{font-size:12px;color:var(--gray-500);display:flex;gap:8px}
 .cnt-m{color:var(--blue);font-weight:500}.cnt-f{color:var(--pink);font-weight:500}
 .twrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{width:100%;border-collapse:collapse;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px;table-layout:auto}
 thead th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--gray-500);background:var(--gray-50);border-bottom:1px solid var(--gray-200);white-space:nowrap;letter-spacing:.04em}
 tbody td{padding:8px 12px;border-bottom:1px solid var(--gray-100);vertical-align:middle}
+/* ทุกคอลัมน์ห้าม wrap — ตารางจะ scroll แนวนอนแทน */
+tbody td.td-name{white-space:nowrap}
+tbody td.td-num{white-space:nowrap;width:1%;text-align:center}
+tbody td.td-id{white-space:nowrap;width:1%;font-family:monospace;font-size:12px}
+tbody td.td-dob{white-space:nowrap;width:1%;color:var(--gray-500)}
 tbody tr:last-child td{border-bottom:none}
 tbody tr.male{background:#FAFCFF}
 tbody tr.female{background:#FFFAFC}
@@ -125,10 +143,12 @@ tbody tr.female{background:#FFFAFC}
 .gpill.f{background:var(--pink-light);color:var(--pink)}
 
 /* Mobile table: smaller text, tighter padding */
-@media(max-width:600px){
+@media(max-width:767px){
   table{font-size:13px}
-  thead th{padding:7px 8px;font-size:10px}
+  thead th{padding:6px 8px;font-size:10px}
   tbody td{padding:7px 8px}
+  .tcard-hdr{padding:10px 12px}
+  .tcard-title{font-size:13px}
 }
 
 /* ── Admin panel ── */
@@ -274,7 +294,7 @@ tbody tr.female{background:#FFFAFC}
             <div class="cnt" id="tCnt"></div>
           </div>
           <div class="twrap">
-            <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+            <table id="dataTable"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
           </div>
         </div>
       </div>
@@ -447,12 +467,14 @@ function initViewer() {
     const n = allData.filter(d=>d['ชั้น']===c).length;
     return `<button class="cls-btn" data-cls="${c}" onclick="selClass('${c}')">${c}<span class="cb">${n}</span></button>`;
   }).join('');
+  // แสดง sidebar เฉพาะ desktop (CSS จะซ่อนบน mobile อยู่แล้ว)
   document.getElementById('sidebar').style.display = 'block';
-  // Mobile class bar
+  // Mobile class scroll bar
   const mb = document.getElementById('mobileClsBar');
-  mb.innerHTML = classes.map(c =>
-    `<button class="mcls-btn" data-cls="${c}" onclick="selClass('${c}')">${c}</button>`
-  ).join('');
+  mb.innerHTML = classes.map(c => {
+    const n = allData.filter(d=>d['ชั้น']===c).length;
+    return `<button class="mcls-btn" data-cls="${c}" onclick="selClass('${c}')">${c} <span style="opacity:.6;font-size:11px">${n}</span></button>`;
+  }).join('');
   mb.classList.add('show');
   // Stats
   const tot = allData.length, m = allData.filter(d=>d['เพศ']==='ช').length;
@@ -505,13 +527,29 @@ function render() {
     const id4 = String(s['รหัสนักเรียน']||'').padStart(4,'0');
     const id13= s['บัตรประชาชน']||'';
     const nm  = `<span class="gpill ${m?'m':'f'}">${m?'ช':'ญ'}</span> ${(s['คำนำหน้าชื่อ']||'').trim()}${s['ชื่อ']||''} ${s['นามสกุล']||''}`;
-    const dob = s['วันเกิด']||'-';
+    const dob = formatDob(s['วันเกิด']||'');
     let c = '';
-    if(curView===1) c=`<td style="text-align:center;color:var(--gray-500);width:36px">${i+1}</td><td style="text-align:center;font-weight:500;width:50px">${id4}</td><td>${nm}</td>`;
-    if(curView===2) c=`<td style="text-align:center;color:var(--gray-500);width:36px">${i+1}</td><td style="text-align:center;font-weight:500;width:50px">${id4}</td><td>${nm}</td><td style="color:var(--gray-500);white-space:nowrap">${dob}</td>`;
-    if(curView===3) c=`<td style="text-align:center;color:var(--gray-500);width:36px">${i+1}</td><td style="text-align:center;font-weight:500;width:50px">${id4}</td><td style="font-family:monospace;font-size:11px;white-space:nowrap">${id13}</td><td>${nm}</td><td style="color:var(--gray-500);white-space:nowrap">${dob}</td>`;
+    if(curView===1) c=`<td class="td-num" style="color:var(--gray-500)">${i+1}</td><td class="td-num" style="font-weight:500">${id4}</td><td class="td-name">${nm}</td>`;
+    if(curView===2) c=`<td class="td-num" style="color:var(--gray-500)">${i+1}</td><td class="td-num" style="font-weight:500">${id4}</td><td class="td-name">${nm}</td><td class="td-dob">${dob}</td>`;
+    if(curView===3) c=`<td class="td-num" style="color:var(--gray-500)">${i+1}</td><td class="td-num" style="font-weight:500">${id4}</td><td class="td-id">${id13}</td><td class="td-name">${nm}</td><td class="td-dob">${dob}</td>`;
     return `<tr class="${m?'male':'female'}">${c}</tr>`;
   }).join('');
+}
+
+// ── Format date ───────────────────────────────────────────
+function formatDob(raw) {
+  if (!raw || raw === '-' || raw === 'undefined') return '-';
+  // รูปแบบ ISO: 2564-10-05T17:00:00.000Z หรือ 2021-10-05T...
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    let y = parseInt(iso[1]);
+    // ถ้าปีน้อยกว่า 2500 แปลงจาก ค.ศ. เป็น พ.ศ.
+    if (y < 2500) y += 543;
+    return `${iso[3]}/${iso[2]}/${y}`;
+  }
+  // รูปแบบ dd/mm/yyyy อยู่แล้ว
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
+  return raw;
 }
 
 // ── PIN ────────────────────────────────────────────────────
