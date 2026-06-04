@@ -5,8 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>ระบบใบรายชื่อนักเรียน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&family=Kanit:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>
+// โหลด XLSX จากหลาย CDN — ป้องกัน Tracking Prevention บน Edge/Safari
+(function() {
+  var cdns = [
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  ];
+  var idx = 0;
+  function load() {
+    if (idx >= cdns.length) {
+      console.error('ไม่สามารถโหลด XLSX ได้จากทุก CDN');
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = cdns[idx++];
+    s.onerror = load; // ลอง CDN ถัดไปถ้า error
+    document.head.appendChild(s);
+  }
+  load();
+})();
+</script>
 <style>
 :root{
   --blue:#2563EB;--blue-light:#EFF6FF;--blue-mid:#BFDBFE;
@@ -23,12 +44,17 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray-900);min-height:100vh}
+/* บังคับ Sarabun ขนาด 14px ทุก element ในตาราง */
+table,table *{font-family:'Sarabun',sans-serif!important;font-size:14px!important}
+thead th{font-size:12px!important;font-weight:600!important}
+.stat-val{font-family:'Sarabun',sans-serif!important}
+.tcard-title,.apanel-hdr h2,.tb-title{font-family:'Sarabun',sans-serif!important}
 
 /* ── Topbar ── */
 .topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 16px;height:var(--topbar);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;box-shadow:var(--shadow-sm)}
 .tb-logo{width:30px;height:30px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .tb-logo svg{width:16px;height:16px;fill:#fff}
-.tb-title{font-family:'Kanit',sans-serif;font-size:15px;font-weight:500;white-space:nowrap}
+.tb-title{font-family:'Sarabun',sans-serif;font-size:15px;font-weight:600;white-space:nowrap}
 .tb-school{font-size:12px;color:var(--gray-500);margin-left:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
 .tb-right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0}
 .status-pill{font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--gray-200);color:var(--gray-500);display:flex;align-items:center;gap:4px;white-space:nowrap}
@@ -95,12 +121,12 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
 .stat-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:10px 12px;box-shadow:var(--shadow-sm)}
 .stat-label{font-size:10px;color:var(--gray-500);margin-bottom:4px}
-.stat-val{font-size:18px;font-weight:600;font-family:'Kanit',sans-serif}
+.stat-val{font-size:18px;font-weight:600;font-family:'Sarabun',sans-serif}
 .stat-val.blue{color:var(--blue)}.stat-val.pink{color:var(--pink)}.stat-val.green{color:var(--green)}
 @media(max-width:767px){
   .stats-row{grid-template-columns:repeat(4,1fr);gap:6px}
   .stat-card{padding:8px 10px}
-  .stat-val{font-size:16px}
+  .stat-val{font-size:16px;font-family:'Sarabun',sans-serif}
 }
 @media(max-width:400px){
   .stats-row{grid-template-columns:repeat(2,1fr)}
@@ -123,30 +149,31 @@ body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray
 /* ── Table ── */
 .tcard{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
 .tcard-hdr{padding:12px 16px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.tcard-title{font-family:'Kanit',sans-serif;font-size:14px;font-weight:500}
+.tcard-title{font-family:'Sarabun',sans-serif;font-size:14px;font-weight:600}
 .cnt{font-size:12px;color:var(--gray-500);display:flex;gap:8px}
 .cnt-m{color:var(--blue);font-weight:500}.cnt-f{color:var(--pink);font-weight:500}
 .twrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{width:100%;border-collapse:collapse;font-size:14px;table-layout:auto}
-thead th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--gray-500);background:var(--gray-50);border-bottom:1px solid var(--gray-200);white-space:nowrap;letter-spacing:.04em}
-tbody td{padding:8px 12px;border-bottom:1px solid var(--gray-100);vertical-align:middle}
+table{width:100%;border-collapse:collapse;font-size:14px;table-layout:auto;font-family:'Sarabun',sans-serif}
+thead th{padding:8px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--gray-500);background:var(--gray-50);border-bottom:1px solid var(--gray-200);white-space:nowrap;letter-spacing:.02em;font-family:'Sarabun',sans-serif}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--gray-100);vertical-align:middle;font-family:'Sarabun',sans-serif;font-size:14px}
 /* ทุกคอลัมน์ห้าม wrap — ตารางจะ scroll แนวนอนแทน */
 tbody td.td-name{white-space:nowrap}
-tbody td.td-num{white-space:nowrap;width:1%;text-align:center}
+tbody td.td-num{white-space:nowrap;width:1%;text-align:center;font-family:'Sarabun',sans-serif;font-size:14px}
 tbody td.td-id{white-space:nowrap;width:1%;font-family:monospace;font-size:12px}
 tbody td.td-dob{white-space:nowrap;width:1%;color:var(--gray-500)}
+tbody td.td-score{width:52px;min-width:52px;border:1px solid var(--gray-300);text-align:center}
 tbody tr:last-child td{border-bottom:none}
 tbody tr.male{background:#FAFCFF}
 tbody tr.female{background:#FFFAFC}
-.gpill{display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:500;flex-shrink:0}
+.gpill{display:inline-flex;align-items:center;font-size:11px;padding:2px 6px;border-radius:10px;font-weight:500;flex-shrink:0;font-family:'Sarabun',sans-serif}
 .gpill.m{background:var(--blue-light);color:var(--blue)}
 .gpill.f{background:var(--pink-light);color:var(--pink)}
 
 /* Mobile table: smaller text, tighter padding */
 @media(max-width:767px){
-  table{font-size:13px}
-  thead th{padding:6px 8px;font-size:10px}
-  tbody td{padding:7px 8px}
+  table{font-size:13px;font-family:'Sarabun',sans-serif}
+  thead th{padding:6px 8px;font-size:11px;font-family:'Sarabun',sans-serif}
+  tbody td{padding:7px 8px;font-family:'Sarabun',sans-serif;font-size:13px}
   .tcard-hdr{padding:10px 12px}
   .tcard-title{font-size:13px}
 }
@@ -155,7 +182,7 @@ tbody tr.female{background:#FFFAFC}
 #adminPanel{display:none;max-width:680px;margin:0 auto;padding:16px}
 #adminPanel.show{display:block}
 .apanel-hdr{margin-bottom:20px}
-.apanel-hdr h2{font-family:'Kanit',sans-serif;font-size:18px;font-weight:500;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.apanel-hdr h2{font-family:'Sarabun',sans-serif;font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .apanel-hdr p{font-size:13px;color:var(--gray-500)}
 .acard{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
 .acard-title{font-size:14px;font-weight:500;display:flex;align-items:center;gap:7px;margin-bottom:4px}
@@ -201,17 +228,51 @@ tbody tr.female{background:#FFFAFC}
 }
 .pin-handle{width:36px;height:4px;background:var(--gray-300);border-radius:2px;margin:0 auto 20px;display:block}
 @media(min-width:500px){.pin-handle{display:none}}
-.pin-modal h3{font-family:'Kanit',sans-serif;font-size:18px;margin-bottom:6px}
+.pin-modal h3{font-family:'Sarabun',sans-serif;font-size:18px;font-weight:600;margin-bottom:6px}
 .pin-modal p{font-size:13px;color:var(--gray-500);margin-bottom:18px}
 .pin-dots{display:flex;justify-content:center;gap:14px;margin-bottom:20px}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--gray-300);background:transparent;transition:all .12s}
 .pin-dot.on{background:var(--blue);border-color:var(--blue)}
 .pin-dot.err{background:var(--red);border-color:var(--red)}
 .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:280px;margin:0 auto}
-.pk{padding:16px;border:1px solid var(--gray-200);border-radius:12px;background:#fff;font-family:'Kanit',sans-serif;font-size:20px;cursor:pointer;transition:all .1s;color:var(--gray-900);touch-action:manipulation;-webkit-user-select:none}
+.pk{padding:16px;border:1px solid var(--gray-200);border-radius:12px;background:#fff;font-family:'Sarabun',sans-serif;font-size:20px;font-weight:600;cursor:pointer;transition:all .1s;color:var(--gray-900);touch-action:manipulation;-webkit-user-select:none}
 .pk:active{background:var(--gray-100);transform:scale(.93)}
 .pk.sm{font-size:13px;color:var(--gray-500)}
 .pin-err{font-size:12px;color:var(--red);margin-top:12px;min-height:18px}
+
+/* ── Print Preview Modal ── */
+.pp-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:400;display:none;flex-direction:column}
+.pp-overlay.show{display:flex}
+.pp-modal{display:flex;flex-direction:column;height:100%;width:100%}
+.pp-topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.pp-topbar-left{display:flex;flex-direction:column;gap:1px}
+.pp-title{font-size:14px;font-weight:600;color:var(--gray-900)}
+.pp-sub{font-size:12px;color:var(--gray-500)}
+.pp-topbar-right{display:flex;gap:8px;flex-shrink:0}
+.pp-body{flex:1;overflow:auto;background:#888;padding:24px;display:flex;justify-content:center;align-items:flex-start}
+.pp-page{
+  background:#fff;
+  width:210mm;
+  min-height:297mm;
+  padding:12mm 10mm 12mm 12mm;
+  box-shadow:0 4px 24px rgba(0,0,0,0.3);
+  font-family:'Sarabun',sans-serif;
+  font-size:10pt;
+  position:relative;
+  flex-shrink:0;
+}
+.pp-page .pp-hdr{text-align:center;margin-bottom:10pt;padding-bottom:8pt;border-bottom:1.5pt solid #000}
+.pp-page .pp-hdr .h-school{font-size:14pt;font-weight:700;margin-bottom:2pt}
+.pp-page .pp-hdr .h-title{font-size:13pt;font-weight:600;margin-bottom:1pt}
+.pp-page .pp-hdr .h-term{font-size:11pt;color:#444}
+.pp-page table{width:100%;border-collapse:collapse;table-layout:fixed}
+.pp-page thead th{border:0.75pt solid #000;padding:3pt 4pt;font-size:inherit;font-weight:700;text-align:center;background:#fff}
+.pp-page tbody td{border:0.75pt solid #000;padding:2.5pt 4pt;font-size:inherit;background:#fff}
+.pp-page tbody tr:nth-child(even) td{background:#f7f7f7}
+@media(max-width:767px){
+  .pp-page{width:100%;min-height:auto;padding:8mm}
+  .pp-body{padding:12px}
+}
 
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--gray-900);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:var(--shadow-md);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
@@ -220,11 +281,84 @@ tbody tr.female{background:#FFFAFC}
 
 /* ── Print ── */
 @media print{
-  .topbar,.sidebar,.mobile-cls-bar,.toolbar,.stats-row,#adminPanel{display:none!important}
-  .layout{display:block}.content{padding:0}
-  .tcard{border:none;box-shadow:none}
+  /* ซ่อน UI ทั้งหมด */
+  .topbar,.sidebar,.mobile-cls-bar,.toolbar,.stats-row,
+  #adminPanel,.tcard-hdr,.tb-right,.gpill{display:none!important}
+
+  /* reset layout */
+  html,body{margin:0;padding:0;background:#fff}
+  .layout{display:block}
+  .content{padding:0;margin:0}
+  .tcard{border:none;box-shadow:none;border-radius:0}
+  .twrap{overflow:visible}
+
+  /* หัวกระดาษ */
+  .print-header{display:block!important}
+
+  /* ตาราง — ขาวดำ */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-family:'Sarabun',sans-serif;
+    font-size:11pt;
+    table-layout:fixed;
+  }
+  thead th{
+    background:#fff!important;
+    color:#000!important;
+    padding:5pt 4pt;
+    font-size:10pt;
+    font-weight:700;
+    border:1pt solid #000!important;
+    text-align:center;
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:4pt 6pt;
+    border:0.75pt solid #000!important;
+    font-size:11pt;
+    background:#fff!important;
+    color:#000!important;
+    vertical-align:middle;
+    white-space:nowrap;
+  }
+  tbody td.td-name{white-space:nowrap;text-align:left}
+  tbody td.td-num{text-align:center}
+  tbody td.td-score{
+    border:0.75pt solid #000!important;
+    text-align:center;
+    background:#fff!important;
+    padding:4pt 2pt;
+  }
+  /* ไม่มีสลับสี — ขาวดำล้วน */
+  tbody tr:nth-child(even) td{background:#fff!important}
   tbody tr.male,tbody tr.female{background:#fff!important}
+
+  /* ซ่อนป้าย ช ญ */
+  .gpill{display:none!important}
+
+  /* A4 portrait */
+  @page{
+    size:A4 portrait;
+    margin:12mm 10mm 12mm 12mm;
+  }
+  table{page-break-inside:avoid}
+  thead{display:table-header-group}
+  tbody tr{page-break-inside:avoid}
 }
+
+/* หัวกระดาษ — ซ่อนบนจอ แสดงเฉพาะตอนพิมพ์ */
+.print-header{
+  display:none;
+  text-align:center;
+  margin-bottom:8pt;
+  padding-bottom:6pt;
+  border-bottom:1.5pt solid #000;
+  font-family:'Sarabun',sans-serif;
+}
+.print-header .ph-school{font-size:14pt;font-weight:700;margin-bottom:2pt;color:#000}
+.print-header .ph-title {font-size:13pt;font-weight:600;margin-bottom:1pt;color:#000}
+.print-header .ph-term  {font-size:11pt;color:#000;font-weight:400}
 </style>
 </head>
 <body>
@@ -281,13 +415,26 @@ tbody tr.female{background:#FFFAFC}
             <button class="vbtn active" data-v="1">แบบ 1</button>
             <button class="vbtn" data-v="2">แบบ 2 — วันเกิด</button>
             <button class="vbtn" data-v="3">แบบ 3 — บัตรประชาชน</button>
+            <button class="vbtn" data-v="4">แบบ 4 — ช่องคะแนน</button>
           </div>
           <div class="tright">
-            <button class="btn ico-only" onclick="window.print()" title="พิมพ์">
+            <button class="btn" onclick="exportExcel()" title="ส่งออก Excel">
+              <svg class="btn-ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="12" y1="12" x2="12" y2="18"/></svg>
+              Excel
+            </button>
+            <button class="btn" onclick="openPrintPreview()" title="ตัวอย่างก่อนพิมพ์">
               <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              พิมพ์
             </button>
           </div>
         </div>
+        <!-- หัวกระดาษ แสดงเฉพาะตอนพิมพ์ -->
+        <div class="print-header" id="printHeader">
+          <div class="ph-school" id="phSchool">โรงเรียนบ้านคลอง 14</div>
+          <div class="ph-title" id="phTitle">รายชื่อนักเรียน</div>
+          <div class="ph-term" id="phTerm">ภาคเรียนที่ 1/2569</div>
+        </div>
+
         <div class="tcard">
           <div class="tcard-hdr">
             <div class="tcard-title" id="tTitle">รายชื่อนักเรียน</div>
@@ -363,6 +510,33 @@ tbody tr.female{background:#FFFAFC}
   </div>
 </div>
 
+<!-- Print Preview Modal -->
+<div class="pp-overlay" id="ppOverlay">
+  <div class="pp-modal">
+    <div class="pp-topbar">
+      <div class="pp-topbar-left">
+        <span class="pp-title" id="ppTitle">ตัวอย่างก่อนพิมพ์</span>
+        <span class="pp-sub" id="ppSub"></span>
+      </div>
+      <div class="pp-topbar-right">
+        <button class="btn" onclick="closePrintPreview()">
+          <svg class="btn-ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          ปิด
+        </button>
+        <button class="btn primary" onclick="doPrint()">
+          <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          พิมพ์
+        </button>
+      </div>
+    </div>
+    <div class="pp-body">
+      <div class="pp-page" id="ppPage">
+        <!-- content injected by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- PIN modal (bottom sheet on mobile, center card on desktop) -->
 <div class="pin-overlay" id="pinOverlay" onclick="if(event.target===this)closePin()">
   <div class="pin-modal">
@@ -395,268 +569,6 @@ tbody tr.female{background:#FFFAFC}
 
 <div class="toast" id="toast"></div>
 
-<script>
-const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbx7lwjrqXeo8IAcra6AfZXzndYaReqi94PkM1OjHokYs_1mde8XzmZB9xCIQQEhdXSC/exec';
-let GAS_URL   = localStorage.getItem('gasUrl') || GAS_URL_DEFAULT;
-let allData   = [], curClass = '', curView = 1;
-let adminPin  = '9999', schoolName = '', pinVal = '';
-const isMobile = () => window.innerWidth < 768;
-const classOrder = ['อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
-
-window.onload = async () => {
-  document.getElementById('gasInput').value = GAS_URL;
-  setupViewBtns();
-  setupDrop();
-  await loadAll();
-};
-
-// ── Load all ──────────────────────────────────────────────
-async function loadAll() {
-  showV('loading');
-  setStatus('', 'กำลังโหลด...');
-  try {
-    const res  = await fetch(`${GAS_URL}?action=getAll`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
-    const cfg = json.config || {};
-    adminPin   = cfg.admin_pin   || '9999';
-    schoolName = cfg.school_name || '';
-    if (schoolName) document.getElementById('tbSchool').textContent = schoolName;
-    renderCfgLive(cfg);
-    allData = [];
-    Object.entries(json.students || {}).forEach(([cls, rows]) => {
-      rows.forEach(r => allData.push({
-        'ชั้น': r['ชั้น'] || cls, 'ห้อง': r['ห้อง'] || '1',
-        'เพศ':  r['เพศ'] === 'ชาย' ? 'ช' : 'ญ',
-        'คำนำหน้าชื่อ': r['คำนำหน้า'] || '',
-        'ชื่อ': r['ชื่อ'] || '', 'นามสกุล': r['นามสกุล'] || '',
-        'วันเกิด': r['วันเกิด'] || '',
-        'บัตรประชาชน':  r['เลขบัตรประชาชน'] || '',
-        'รหัสนักเรียน': r['รหัส 4 หลัก'] || ''
-      }));
-    });
-    if (allData.length) { initViewer(); setStatus('ok', 'เชื่อมต่อแล้ว'); }
-    else { showV('noData'); setStatus('err', 'ยังไม่มีข้อมูล'); }
-  } catch(e) {
-    showV('noData'); setStatus('err', 'เชื่อมต่อไม่ได้');
-    document.getElementById('cfgLive').textContent = 'โหลด config ไม่ได้: ' + e.message;
-  }
-}
-
-function renderCfgLive(cfg) {
-  document.getElementById('cfgLive').innerHTML =
-    `<table style="width:100%;border-collapse:collapse">` +
-    Object.entries(cfg).map(([k,v]) =>
-      `<tr><td style="padding:2px 0;color:var(--gray-500);width:45%;font-size:12px">${k}</td>` +
-      `<td style="padding:2px 0;font-size:13px"><strong>${k==='admin_pin'?'••••':v}</strong></td></tr>`
-    ).join('') + `</table>` +
-    `<p style="margin-top:8px;font-size:11px;color:var(--gray-400)">แก้ไขโดยตรงใน Google Sheets → ชีท config</p>`;
-}
-
-// ── Viewer ────────────────────────────────────────────────
-function showV(name) {
-  document.getElementById('loadingScreen').classList.toggle('active', name==='loading');
-  document.getElementById('appScreen').classList.toggle('active',    name==='app');
-  document.getElementById('noDataScreen').classList.toggle('active', name==='noData');
-}
-
-function initViewer() {
-  const classes = classOrder.filter(c => allData.some(d => d['ชั้น']===c));
-  // Desktop sidebar
-  document.getElementById('clsButtons').innerHTML = classes.map(c => {
-    const n = allData.filter(d=>d['ชั้น']===c).length;
-    return `<button class="cls-btn" data-cls="${c}" onclick="selClass('${c}')">${c}<span class="cb">${n}</span></button>`;
-  }).join('');
-  // แสดง sidebar เฉพาะ desktop (CSS จะซ่อนบน mobile อยู่แล้ว)
-  document.getElementById('sidebar').style.display = 'block';
-  // Mobile class scroll bar
-  const mb = document.getElementById('mobileClsBar');
-  mb.innerHTML = classes.map(c => {
-    const n = allData.filter(d=>d['ชั้น']===c).length;
-    return `<button class="mcls-btn" data-cls="${c}" onclick="selClass('${c}')">${c} <span style="opacity:.6;font-size:11px">${n}</span></button>`;
-  }).join('');
-  mb.classList.add('show');
-  // Stats
-  const tot = allData.length, m = allData.filter(d=>d['เพศ']==='ช').length;
-  document.getElementById('statsRow').innerHTML = `
-    <div class="stat-card"><div class="stat-label">ทั้งหมด</div><div class="stat-val">${tot}</div></div>
-    <div class="stat-card"><div class="stat-label">ชาย</div><div class="stat-val blue">${m}</div></div>
-    <div class="stat-card"><div class="stat-label">หญิง</div><div class="stat-val pink">${tot-m}</div></div>
-    <div class="stat-card"><div class="stat-label">ชั้น</div><div class="stat-val green">${classes.length}</div></div>`;
-  showV('app');
-  if (classes.length) selClass(classes[0]);
-}
-
-function selClass(cls) {
-  curClass = cls;
-  document.querySelectorAll('.cls-btn').forEach(b  => b.classList.toggle('active', b.dataset.cls===cls));
-  document.querySelectorAll('.mcls-btn').forEach(b => b.classList.toggle('active', b.dataset.cls===cls));
-  // Scroll mobile bar to show active
-  const active = document.querySelector('.mcls-btn.active');
-  if (active) active.scrollIntoView({inline:'center',behavior:'smooth'});
-  render();
-}
-
-function setupViewBtns() {
-  document.querySelectorAll('.vbtn').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('.vbtn').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active'); curView = parseInt(b.dataset.v); render();
-  }));
-}
-
-function render() {
-  const data    = allData.filter(d => d['ชั้น']===curClass);
-  const males   = data.filter(d=>d['เพศ']==='ช').sort((a,b)=>(a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'));
-  const females = data.filter(d=>d['เพศ']==='ญ').sort((a,b)=>(a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'));
-  const rows    = [...males, ...females];
-  const hMap = {
-    1:['เลขที่','รหัส','ชื่อ-นามสกุล'],
-    2:['เลขที่','รหัส','ชื่อ-นามสกุล','วันเกิด'],
-    3:['เลขที่','รหัส','บัตรประชาชน','ชื่อ-นามสกุล','วันเกิด']
-  };
-  const vt = {1:'รายชื่อนักเรียน',2:'รายชื่อพร้อมวันเกิด',3:'รายชื่อพร้อมรหัสบัตร'};
-  document.getElementById('tTitle').textContent = `${vt[curView]} — ชั้น ${curClass}`;
-  document.getElementById('tCnt').innerHTML = `<span class="cnt-m">ชาย ${males.length}</span><span class="cnt-f">หญิง ${females.length}</span>`;
-  document.getElementById('thead').innerHTML = `<tr>${hMap[curView].map(h=>`<th>${h}</th>`).join('')}</tr>`;
-  if (!rows.length) {
-    document.getElementById('tbody').innerHTML = `<tr><td colspan="${hMap[curView].length}" style="text-align:center;padding:32px;color:var(--gray-400)">ไม่พบข้อมูล</td></tr>`;
-    return;
-  }
-  document.getElementById('tbody').innerHTML = rows.map((s,i) => {
-    const m   = s['เพศ']==='ช';
-    const id4 = String(s['รหัสนักเรียน']||'').padStart(4,'0');
-    const id13= s['บัตรประชาชน']||'';
-    const nm  = `<span class="gpill ${m?'m':'f'}">${m?'ช':'ญ'}</span> ${(s['คำนำหน้าชื่อ']||'').trim()}${s['ชื่อ']||''} ${s['นามสกุล']||''}`;
-    const dob = formatDob(s['วันเกิด']||'');
-    let c = '';
-    if(curView===1) c=`<td class="td-num" style="color:var(--gray-500)">${i+1}</td><td class="td-num" style="font-weight:500">${id4}</td><td class="td-name">${nm}</td>`;
-    if(curView===2) c=`<td class="td-num" style="color:var(--gray-500)">${i+1}</td><td class="td-num" style="font-weight:500">${id4}</td><td class="td-name">${nm}</td><td class="td-dob">${dob}</td>`;
-    if(curView===3) c=`<td class="td-num" style="color:var(--gray-500)">${i+1}</td><td class="td-num" style="font-weight:500">${id4}</td><td class="td-id">${id13}</td><td class="td-name">${nm}</td><td class="td-dob">${dob}</td>`;
-    return `<tr class="${m?'male':'female'}">${c}</tr>`;
-  }).join('');
-}
-
-// ── Format date ───────────────────────────────────────────
-function formatDob(raw) {
-  if (!raw || raw === '-' || raw === 'undefined') return '-';
-  // รูปแบบ ISO: 2564-10-05T17:00:00.000Z หรือ 2021-10-05T...
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) {
-    let y = parseInt(iso[1]);
-    // ถ้าปีน้อยกว่า 2500 แปลงจาก ค.ศ. เป็น พ.ศ.
-    if (y < 2500) y += 543;
-    return `${iso[3]}/${iso[2]}/${y}`;
-  }
-  // รูปแบบ dd/mm/yyyy อยู่แล้ว
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
-  return raw;
-}
-
-// ── PIN ────────────────────────────────────────────────────
-function openPin() { pinVal=''; updDots(); document.getElementById('pinErr').textContent=''; document.getElementById('pinOverlay').classList.add('show'); }
-function closePin() { document.getElementById('pinOverlay').classList.remove('show'); }
-function pk(d) { if(pinVal.length>=4)return; pinVal+=d; updDots(); if(pinVal.length===4)setTimeout(chkPin,120); }
-function pkDel() { pinVal=pinVal.slice(0,-1); updDots(); }
-function pkClr() { pinVal=''; updDots(); }
-function updDots() { for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);d.classList.toggle('on',i<pinVal.length);d.classList.remove('err');} }
-function chkPin() {
-  if (pinVal===adminPin) { closePin(); enterAdmin(); }
-  else {
-    for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.add('err');
-    document.getElementById('pinErr').textContent='รหัสไม่ถูกต้อง';
-    setTimeout(()=>{ pinVal=''; updDots(); document.getElementById('pinErr').textContent=''; }, 900);
-  }
-}
-
-// ── Admin ──────────────────────────────────────────────────
-function enterAdmin() {
-  document.getElementById('viewerLayout').style.display = 'none';
-  document.getElementById('adminPanel').classList.add('show');
-  document.getElementById('adminPill').classList.add('show');
-  document.getElementById('adminExitBtn').style.display = 'inline-flex';
-  toast('เข้าสู่โหมดแอดมิน', 'ok');
-}
-function exitAdmin() {
-  document.getElementById('viewerLayout').style.display = 'block';
-  document.getElementById('adminPanel').classList.remove('show');
-  document.getElementById('adminPill').classList.remove('show');
-  document.getElementById('adminExitBtn').style.display = 'none';
-}
-
-// ── Upload ─────────────────────────────────────────────────
-function setupDrop() {
-  const dz=document.getElementById('dropZone'), fi=document.getElementById('fileIn');
-  dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('over')});
-  dz.addEventListener('dragleave', ()=>dz.classList.remove('over'));
-  dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0])});
-  fi.addEventListener('change', e=>{if(e.target.files[0])setFile(e.target.files[0])});
-}
-let pendingFile = null;
-function setFile(f) {
-  pendingFile = f;
-  document.getElementById('fileName').textContent = f.name;
-  document.getElementById('fileBadge').classList.add('show');
-  document.getElementById('uploadBtn').disabled = false;
-  document.getElementById('syncMsg').innerHTML = '';
-}
-function doUpload() {
-  if (!pendingFile) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb  = XLSX.read(e.target.result, {type:'array'});
-    const ws  = wb.Sheets[wb.SheetNames[0]];
-    const raw = XLSX.utils.sheet_to_json(ws, {header:1});
-    const data = raw.slice(2).filter(r=>r&&r.length>5).map(r=>({
-      'บัตรประชาชน':  String(r[2]||''),
-      'ชั้น':          String(r[3]||''),
-      'ห้อง':          String(r[4]||''),
-      'รหัสนักเรียน':  String(r[5]||''),
-      'เพศ':           String(r[6]||''),
-      'คำนำหน้าชื่อ':  String(r[7]||''),
-      'ชื่อ':          String(r[8]||''),
-      'นามสกุล':       String(r[9]||''),
-      'วันเกิด':       String(r[10]||''),
-    }));
-    pushToSheets(data);
-  };
-  reader.readAsArrayBuffer(pendingFile);
-}
-async function pushToSheets(data) {
-  const btn=document.getElementById('uploadBtn'), st=document.getElementById('uploadSt'), msg=document.getElementById('syncMsg');
-  btn.disabled=true;
-  btn.innerHTML='<span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0"></span> กำลังบันทึก...';
-  st.textContent=`อ่าน ${data.length} รายการ...`; msg.innerHTML='';
-  try {
-    const res  = await fetch(GAS_URL, {method:'POST', body:JSON.stringify({action:'saveStudents', students:data})});
-    const json = await res.json();
-    if (json.success) { msg.className='sync-msg ok'; msg.textContent='✓ '+json.message; toast(json.message,'ok'); setStatus('ok','เชื่อมต่อแล้ว'); }
-    else              { msg.className='sync-msg err'; msg.textContent='เกิดข้อผิดพลาด: '+json.message; }
-  } catch(e) { msg.className='sync-msg err'; msg.textContent='เชื่อมต่อไม่ได้: '+e.message; }
-  st.textContent='';
-  btn.disabled=false;
-  btn.innerHTML='<svg class="btn-ico" style="stroke:#fff" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> บันทึกลง Google Sheets';
-}
-
-// ── Settings ───────────────────────────────────────────────
-function saveGasUrl() {
-  const v = document.getElementById('gasInput').value.trim();
-  if (!v) { toast('กรุณากรอก URL','err'); return; }
-  GAS_URL = v; localStorage.setItem('gasUrl', v);
-  toast('บันทึก URL แล้ว — กำลังโหลดใหม่','ok');
-  setTimeout(loadAll, 600);
-}
-
-// ── Status / Toast ─────────────────────────────────────────
-function setStatus(cls, txt) {
-  const el = document.getElementById('statusPill');
-  el.className = 'status-pill' + (cls ? ' '+cls : '');
-  document.getElementById('statusTxt').textContent = txt;
-}
-function toast(msg, type='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = 'toast show' + (type ? ' '+type : '');
-  setTimeout(() => t.className = 'toast', 3000);
-}
-</script>
+<script src="app.js"></script>
 </body>
 </html>
