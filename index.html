@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบใบรายชื่อนักเรียน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&family=Kanit:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --blue:#2563EB;--blue-light:#EFF6FF;--blue-mid:#BFDBFE;
+  --pink:#DB2777;--pink-light:#FDF2F8;
+  --green:#059669;--green-light:#ECFDF5;
+  --amber:#D97706;--amber-light:#FFFBEB;
+  --red:#DC2626;
+  --gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;
+  --gray-300:#D1D5DB;--gray-400:#9CA3AF;--gray-500:#6B7280;
+  --gray-700:#374151;--gray-900:#111827;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.08);--shadow-md:0 4px 16px rgba(0,0,0,0.12);
+  --radius:10px;--radius-lg:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sarabun',sans-serif;background:var(--gray-50);color:var(--gray-900);min-height:100vh}
+
+/* topbar */
+.topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 24px;height:56px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm)}
+.tb-logo{width:32px;height:32px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.tb-logo svg{width:18px;height:18px;fill:#fff}
+.tb-title{font-family:'Kanit',sans-serif;font-size:15px;font-weight:500}
+.tb-school{font-size:12px;color:var(--gray-500);margin-left:4px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.status-pill{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--gray-200);color:var(--gray-500);display:flex;align-items:center;gap:5px}
+.status-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--gray-300)}
+.status-pill.ok .dot{background:var(--green)}
+.status-pill.ok{color:var(--green);border-color:#A7F3D0;background:var(--green-light)}
+.status-pill.err .dot{background:var(--red)}
+.status-pill.err{color:var(--red);border-color:#FECACA;background:#FEF2F2}
+.admin-pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--amber-light);color:var(--amber);border:1px solid #FDE68A;display:none;align-items:center;gap:5px}
+.admin-pill.show{display:flex}
+
+/* buttons */
+.btn{font-family:'Sarabun',sans-serif;font-size:13px;padding:6px 14px;border-radius:7px;border:1px solid var(--gray-200);background:#fff;color:var(--gray-700);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.btn:hover{background:var(--gray-50);border-color:var(--gray-300)}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.primary:hover{background:#1D4ED8}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn svg,.btn-ico{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+.btn.primary .btn-ico,.btn.danger .btn-ico{stroke:#fff}
+
+/* layout */
+.layout{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:220px;background:#fff;border-right:1px solid var(--gray-200);padding:16px 0;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
+.sidebar-label{font-size:10px;font-weight:600;color:var(--gray-500);letter-spacing:.08em;text-transform:uppercase;padding:8px 20px 4px}
+.cls-btn{width:100%;text-align:left;padding:7px 20px;border:none;background:transparent;font-family:'Sarabun',sans-serif;font-size:14px;color:var(--gray-700);cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .12s}
+.cls-btn:hover{background:var(--gray-100)}
+.cls-btn.active{background:var(--blue-light);color:var(--blue);font-weight:500}
+.cls-btn .cb{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--gray-100);color:var(--gray-500)}
+.cls-btn.active .cb{background:var(--blue-mid);color:var(--blue)}
+.content{flex:1;padding:20px 24px;overflow-x:hidden}
+
+/* screens */
+.screen{display:none}
+.screen.active{display:block}
+#loadingScreen.active{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 120px);gap:14px;color:var(--gray-500)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:26px;height:26px;border:2px solid var(--gray-200);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+
+/* stats */
+.stats-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:14px 18px;flex:1;min-width:100px;box-shadow:var(--shadow-sm)}
+.stat-label{font-size:11px;color:var(--gray-500);margin-bottom:6px}
+.stat-val{font-size:22px;font-weight:600;font-family:'Kanit',sans-serif}
+.stat-val.blue{color:var(--blue)}.stat-val.pink{color:var(--pink)}.stat-val.green{color:var(--green)}
+
+/* toolbar */
+.toolbar{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;box-shadow:var(--shadow-sm)}
+.tlabel{font-size:12px;color:var(--gray-500);white-space:nowrap}
+.vg{display:flex;gap:4px;background:var(--gray-100);padding:3px;border-radius:8px}
+.vbtn{font-family:'Sarabun',sans-serif;font-size:12px;padding:5px 12px;border-radius:6px;border:none;background:transparent;color:var(--gray-500);cursor:pointer;white-space:nowrap;transition:all .15s}
+.vbtn.active{background:#fff;color:var(--blue);font-weight:500;box-shadow:var(--shadow-sm)}
+.tright{margin-left:auto;display:flex;gap:8px}
+
+/* table */
+.tcard{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm)}
+.tcard-hdr{padding:14px 18px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between}
+.tcard-title{font-family:'Kanit',sans-serif;font-size:15px;font-weight:500}
+.cnt{font-size:12px;color:var(--gray-500);display:flex;gap:10px}
+.cnt-m{color:var(--blue);font-weight:500}.cnt-f{color:var(--pink);font-weight:500}
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--gray-500);background:var(--gray-50);border-bottom:1px solid var(--gray-200);white-space:nowrap;letter-spacing:.04em}
+tbody td{padding:9px 14px;border-bottom:1px solid var(--gray-100);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.male{background:#FAFCFF}tbody tr.female{background:#FFFAFC}
+tbody tr:hover td{background:var(--gray-50)!important}
+.gpill{display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.gpill.m{background:var(--blue-light);color:var(--blue)}
+.gpill.f{background:var(--pink-light);color:var(--pink)}
+
+/* no-data screen */
+#noDataScreen.active{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 120px);gap:12px;color:var(--gray-500)}
+
+/* ── Admin panel ── */
+#adminPanel{display:none;max-width:700px;margin:32px auto}
+#adminPanel.show{display:block}
+.apanel-hdr{margin-bottom:28px}
+.apanel-hdr h2{font-family:'Kanit',sans-serif;font-size:20px;font-weight:500;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.apanel-hdr p{font-size:13px;color:var(--gray-500)}
+.acard{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:22px 24px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.acard-title{font-size:14px;font-weight:500;display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.acard-title svg{width:16px;height:16px;stroke:var(--gray-500);fill:none;stroke-width:2}
+.acard-sub{font-size:13px;color:var(--gray-500);margin-bottom:16px;line-height:1.6}
+
+/* upload zone */
+.drop-zone{border:1.5px dashed var(--gray-300);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all .2s}
+.drop-zone:hover,.drop-zone.over{border-color:var(--blue);background:var(--blue-light)}
+.drop-zone svg{width:30px;height:30px;stroke:var(--gray-400);fill:none;stroke-width:1.5;margin-bottom:10px}
+.drop-zone p{font-size:14px;color:var(--gray-500);margin:0}
+.drop-zone p strong{color:var(--blue)}
+.drop-zone small{font-size:12px;color:var(--gray-400)}
+.file-badge{display:none;align-items:center;gap:8px;margin-top:10px;padding:10px 14px;border-radius:var(--radius);background:var(--green-light);border:1px solid #A7F3D0}
+.file-badge.show{display:flex}
+.file-badge svg{width:14px;height:14px;stroke:var(--green);fill:none;stroke-width:2.5;flex-shrink:0}
+.file-badge span{font-size:13px;color:var(--green);font-weight:500}
+.upload-row{margin-top:14px;display:flex;gap:10px;align-items:center}
+.sync-msg{font-size:13px;padding:10px 14px;border-radius:var(--radius);margin-top:12px;display:none}
+.sync-msg.ok{background:var(--green-light);color:var(--green);border:1px solid #A7F3D0;display:block}
+.sync-msg.err{background:#FEF2F2;color:var(--red);border:1px solid #FECACA;display:block}
+
+/* form */
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:12px;font-weight:500;color:var(--gray-700);margin-bottom:5px}
+.fg input{width:100%;padding:8px 12px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--gray-900)}
+.fg input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.fg input.mono{font-family:monospace;font-size:12px}
+.fg-hint{font-size:11px;color:var(--gray-500);margin-top:4px;line-height:1.55}
+
+/* config live values */
+.cfg-live{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;font-size:12px;color:var(--gray-500);line-height:1.8}
+.cfg-live strong{color:var(--gray-900);font-weight:500}
+
+/* PIN modal */
+.pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity .2s}
+.pin-overlay.show{opacity:1;pointer-events:all}
+.pin-modal{background:#fff;border-radius:var(--radius-lg);padding:32px 28px;width:320px;text-align:center;box-shadow:var(--shadow-md);transform:scale(.95);transition:transform .2s}
+.pin-overlay.show .pin-modal{transform:scale(1)}
+.pin-modal h3{font-family:'Kanit',sans-serif;font-size:18px;margin-bottom:6px}
+.pin-modal p{font-size:13px;color:var(--gray-500);margin-bottom:20px}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:22px}
+.pin-dot{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--gray-300);background:transparent;transition:all .12s}
+.pin-dot.on{background:var(--blue);border-color:var(--blue)}
+.pin-dot.err{background:var(--red);border-color:var(--red)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pk{padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius);background:#fff;font-family:'Kanit',sans-serif;font-size:18px;cursor:pointer;transition:all .15s;color:var(--gray-900)}
+.pk:hover{background:var(--gray-50);border-color:var(--gray-300)}
+.pk:active{transform:scale(.95)}
+.pk.sm{font-size:13px;color:var(--gray-500)}
+.pin-err{font-size:12px;color:var(--red);margin-top:12px;min-height:18px}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--gray-900);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;z-index:999;box-shadow:var(--shadow-md);transform:translateY(80px);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{background:var(--green)}.toast.err{background:var(--red)}
+
+@media print{
+  .topbar,.sidebar,.toolbar,.stats-row,#adminPanel,.tb-right{display:none!important}
+  .layout{display:block}.content{padding:0}
+  .tcard{border:none;box-shadow:none}
+  tbody tr.male,tbody tr.female{background:#fff!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <div class="tb-logo">
+    <svg viewBox="0 0 24 24"><path d="M12 3L2 9l10 6 10-6-10-6zM2 17l10 6 10-6M2 13l10 6 10-6"/></svg>
+  </div>
+  <span class="tb-title">ใบรายชื่อนักเรียน</span>
+  <span class="tb-school" id="tbSchool"></span>
+  <div class="tb-right">
+    <div class="status-pill" id="statusPill">
+      <span class="dot"></span><span id="statusTxt">กำลังโหลด...</span>
+    </div>
+    <div class="admin-pill" id="adminPill">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      แอดมิน
+    </div>
+    <button class="btn" id="adminExitBtn" style="display:none" onclick="exitAdmin()">ออกจากแอดมิน</button>
+    <button class="btn" onclick="openPin()">
+      <svg class="btn-ico" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      แอดมิน
+    </button>
+  </div>
+</div>
+
+<!-- ── Viewer layout ── -->
+<div class="layout" id="viewerLayout">
+  <div class="sidebar" id="sidebar" style="display:none">
+    <div class="sidebar-label">ระดับชั้น</div>
+    <div id="clsButtons"></div>
+  </div>
+  <div class="content">
+    <div class="screen active" id="loadingScreen">
+      <div class="spinner"></div>
+      <span style="font-size:13px">กำลังโหลดข้อมูล...</span>
+    </div>
+    <div class="screen" id="appScreen">
+      <div class="stats-row" id="statsRow"></div>
+      <div class="toolbar">
+        <span class="tlabel">รูปแบบ</span>
+        <div class="vg">
+          <button class="vbtn active" data-v="1">แบบ 1 — รายชื่อ</button>
+          <button class="vbtn" data-v="2">แบบ 2 — วันเกิด</button>
+          <button class="vbtn" data-v="3">แบบ 3 — บัตรประชาชน</button>
+        </div>
+        <div class="tright">
+          <button class="btn" onclick="window.print()">
+            <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            พิมพ์
+          </button>
+        </div>
+      </div>
+      <div class="tcard">
+        <div class="tcard-hdr">
+          <div class="tcard-title" id="tTitle">รายชื่อนักเรียน</div>
+          <div class="cnt" id="tCnt"></div>
+        </div>
+        <div class="twrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      </div>
+    </div>
+    <div class="screen" id="noDataScreen">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5" style="margin-bottom:14px"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      <p style="font-size:15px;margin-bottom:6px">ยังไม่มีข้อมูลนักเรียน</p>
+      <p style="font-size:13px">ติดต่อผู้ดูแลระบบเพื่ออัปโหลดข้อมูล</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin panel ── -->
+<div id="adminPanel">
+  <div class="apanel-hdr">
+    <h2>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      จัดการข้อมูลนักเรียน
+    </h2>
+    <p>อัปโหลดไฟล์ข้อมูลดิบเพื่ออัปเดตรายชื่อนักเรียนใน Google Sheets</p>
+  </div>
+
+  <!-- Upload -->
+  <div class="acard">
+    <div class="acard-title">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      อัปโหลดไฟล์ข้อมูลนักเรียน
+    </div>
+    <div class="acard-sub">ไฟล์ .xlsx จากระบบ SGS / DMC ข้อมูลจะแยกชีทตามระดับชั้นอัตโนมัติ</div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileIn').click()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p>ลากไฟล์มาวางที่นี่ หรือ <strong>คลิกเลือกไฟล์</strong></p>
+      <small>รองรับ .xlsx เท่านั้น</small>
+    </div>
+    <input type="file" id="fileIn" accept=".xlsx,.xls" style="display:none">
+    <div class="file-badge" id="fileBadge">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      <span id="fileName">—</span>
+    </div>
+    <div class="upload-row">
+      <button class="btn primary" id="uploadBtn" onclick="doUpload()" disabled>
+        <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        บันทึกลง Google Sheets
+      </button>
+      <span id="uploadSt" style="font-size:13px;color:var(--gray-500)"></span>
+    </div>
+    <div id="syncMsg"></div>
+  </div>
+
+  <!-- Config (read from Sheets) -->
+  <div class="acard">
+    <div class="acard-title">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      ตั้งค่าระบบ (แก้ไขได้ใน Google Sheets ชีท <code style="background:var(--gray-100);padding:1px 6px;border-radius:4px;font-size:11px">config</code>)
+    </div>
+    <div class="acard-sub">ค่าด้านล่างดึงมาจาก Google Sheets — แก้ไขโดยตรงในชีท config แล้ว refresh หน้าเว็บ</div>
+    <div class="cfg-live" id="cfgLive">กำลังโหลด config...</div>
+    <div style="border-top:1px solid var(--gray-200);padding-top:16px;margin-top:4px">
+      <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">หรือแก้ไข URL ของ Apps Script (บันทึกใน browser เครื่องนี้เท่านั้น)</p>
+      <div class="fg">
+        <label>Google Apps Script Web App URL</label>
+        <input type="text" id="gasInput" class="mono" placeholder="https://script.google.com/macros/s/…/exec">
+        <div class="fg-hint">Apps Script → Deploy → New deployment → Web app → Execute as: Me → Anyone → Deploy</div>
+      </div>
+      <button class="btn primary" onclick="saveGasUrl()">บันทึก URL</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN modal -->
+<div class="pin-overlay" id="pinOverlay" onclick="if(event.target===this)closePin()">
+  <div class="pin-modal">
+    <h3>เข้าสู่โหมดแอดมิน</h3>
+    <p>กรอกรหัส 4 หลัก</p>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pk" onclick="pk('1')">1</button><button class="pk" onclick="pk('2')">2</button><button class="pk" onclick="pk('3')">3</button>
+      <button class="pk" onclick="pk('4')">4</button><button class="pk" onclick="pk('5')">5</button><button class="pk" onclick="pk('6')">6</button>
+      <button class="pk" onclick="pk('7')">7</button><button class="pk" onclick="pk('8')">8</button><button class="pk" onclick="pk('9')">9</button>
+      <button class="pk sm" onclick="pkClr()">ล้าง</button><button class="pk" onclick="pk('0')">0</button><button class="pk sm" onclick="pkDel()">⌫</button>
+    </div>
+    <div class="pin-err" id="pinErr"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── GAS URL (hardcoded + localStorage override) ──────────
+const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbx7lwjrqXeo8IAcra6AfZXzndYaReqi94PkM1OjHokYs_1mde8XzmZB9xCIQQEhdXSC/exec';
+let GAS_URL = localStorage.getItem('gasUrl') || GAS_URL_DEFAULT;
+
+// ── State ─────────────────────────────────────────────────
+let allData    = [];
+let curClass   = '';
+let curView    = 1;
+let adminPin   = '9999';   // จะถูกแทนที่จาก Sheets
+let schoolName = '';
+let pinVal     = '';
+const classOrder = ['อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
+
+// ── Boot ──────────────────────────────────────────────────
+window.onload = async () => {
+  document.getElementById('gasInput').value = GAS_URL;
+  setupViewBtns();
+  setupDrop();
+  await loadAll();
+};
+
+async function loadAll() {
+  showV('loading');
+  setStatus('','กำลังโหลด...');
+  try {
+    const res  = await fetch(`${GAS_URL}?action=getAll`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    // apply config
+    const cfg = json.config || {};
+    adminPin   = cfg.admin_pin   || '9999';
+    schoolName = cfg.school_name || '';
+    if (schoolName) document.getElementById('tbSchool').textContent = schoolName;
+    renderCfgLive(cfg);
+
+    // apply students
+    allData = [];
+    Object.entries(json.students || {}).forEach(([cls, rows]) => {
+      rows.forEach(r => allData.push({
+        'ชั้น': r['ชั้น'] || cls,
+        'ห้อง': r['ห้อง'] || '1',
+        'เพศ':  r['เพศ'] === 'ชาย' ? 'ช' : 'ญ',
+        'คำนำหน้าชื่อ': r['คำนำหน้า'] || '',
+        'ชื่อ':          r['ชื่อ'] || '',
+        'นามสกุล':       r['นามสกุล'] || '',
+        'วันเกิด':       r['วันเกิด'] || '',
+        'บัตรประชาชน':   r['เลขบัตรประชาชน'] || '',
+        'รหัสนักเรียน':  r['รหัส 4 หลัก'] || ''
+      }));
+    });
+
+    if (allData.length) { initViewer(); setStatus('ok','เชื่อมต่อแล้ว'); }
+    else { showV('noData'); setStatus('err','ยังไม่มีข้อมูล'); }
+  } catch(e) {
+    showV('noData');
+    setStatus('err','เชื่อมต่อไม่ได้');
+    document.getElementById('cfgLive').textContent = 'โหลด config ไม่ได้: ' + e.message;
+  }
+}
+
+function renderCfgLive(cfg) {
+  document.getElementById('cfgLive').innerHTML =
+    `<table style="width:100%;border-collapse:collapse">` +
+    Object.entries(cfg).map(([k,v]) =>
+      `<tr><td style="padding:3px 0;color:var(--gray-500);width:40%">${k}</td>` +
+      `<td style="padding:3px 0"><strong>${k==='admin_pin'?'••••':v}</strong></td></tr>`
+    ).join('') + `</table>` +
+    `<p style="margin-top:8px;font-size:11px;color:var(--gray-400)">แก้ไขได้โดยตรงใน Google Sheets → ชีท config</p>`;
+}
+
+// ── Viewer ────────────────────────────────────────────────
+function showV(name) {
+  ['loading','app','noData'].forEach(n => {
+    const el = document.getElementById(n==='app'?'appScreen':n==='noData'?'noDataScreen':'loadingScreen');
+    el.classList.toggle('active', n===name);
+  });
+}
+
+function initViewer() {
+  const classes = classOrder.filter(c => allData.some(d=>d['ชั้น']===c));
+  document.getElementById('clsButtons').innerHTML = classes.map(c => {
+    const n = allData.filter(d=>d['ชั้น']===c).length;
+    return `<button class="cls-btn" data-cls="${c}" onclick="selClass('${c}')">${c}<span class="cb">${n}</span></button>`;
+  }).join('');
+  document.getElementById('sidebar').style.display = 'block';
+  const tot = allData.length, m = allData.filter(d=>d['เพศ']==='ช').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-label">นักเรียนทั้งหมด</div><div class="stat-val">${tot} คน</div></div>
+    <div class="stat-card"><div class="stat-label">นักเรียนชาย</div><div class="stat-val blue">${m} คน</div></div>
+    <div class="stat-card"><div class="stat-label">นักเรียนหญิง</div><div class="stat-val pink">${tot-m} คน</div></div>
+    <div class="stat-card"><div class="stat-label">จำนวนชั้น</div><div class="stat-val green">${classes.length} ชั้น</div></div>`;
+  showV('app');
+  if (classes.length) selClass(classes[0]);
+}
+
+function selClass(cls) {
+  curClass = cls;
+  document.querySelectorAll('.cls-btn').forEach(b=>b.classList.toggle('active',b.dataset.cls===cls));
+  render();
+}
+
+function setupViewBtns() {
+  document.querySelectorAll('.vbtn').forEach(b => b.addEventListener('click',()=>{
+    document.querySelectorAll('.vbtn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); curView=parseInt(b.dataset.v); render();
+  }));
+}
+
+function render() {
+  const data = allData.filter(d=>d['ชั้น']===curClass);
+  const males   = data.filter(d=>d['เพศ']==='ช').sort((a,b)=>(a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'));
+  const females = data.filter(d=>d['เพศ']==='ญ').sort((a,b)=>(a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'));
+  const rows = [...males,...females];
+  const hMap = {1:['เลขที่','รหัสนักเรียน','ชื่อ-นามสกุล'],2:['เลขที่','รหัสนักเรียน','ชื่อ-นามสกุล','วันเกิด'],3:['เลขที่','รหัสนักเรียน','รหัสบัตรประชาชน','ชื่อ-นามสกุล','วันเกิด']};
+  const vt  = {1:'รายชื่อนักเรียน',2:'รายชื่อพร้อมวันเกิด',3:'รายชื่อพร้อมรหัสบัตร'};
+  document.getElementById('tTitle').textContent = `${vt[curView]} — ชั้น ${curClass}`;
+  document.getElementById('tCnt').innerHTML = `<span class="cnt-m">ชาย ${males.length} คน</span><span class="cnt-f">หญิง ${females.length} คน</span>`;
+  document.getElementById('thead').innerHTML = `<tr>${hMap[curView].map(h=>`<th>${h}</th>`).join('')}</tr>`;
+  if (!rows.length){document.getElementById('tbody').innerHTML=`<tr><td colspan="${hMap[curView].length}" style="text-align:center;padding:36px;color:var(--gray-400)">ไม่พบข้อมูล</td></tr>`;return;}
+  document.getElementById('tbody').innerHTML = rows.map((s,i)=>{
+    const m   = s['เพศ']==='ช';
+    const id4 = String(s['รหัสนักเรียน']||'').padStart(4,'0');
+    const id13= s['บัตรประชาชน']||'';
+    const nm  = `<span class="gpill ${m?'m':'f'}">${m?'ชาย':'หญิง'}</span> ${(s['คำนำหน้าชื่อ']||'').trim()}${s['ชื่อ']||''} ${s['นามสกุล']||''}`;
+    const dob = s['วันเกิด']||'-';
+    let c='';
+    if(curView===1) c=`<td style="text-align:center;color:var(--gray-500)">${i+1}</td><td style="text-align:center;font-weight:500">${id4}</td><td>${nm}</td>`;
+    if(curView===2) c=`<td style="text-align:center;color:var(--gray-500)">${i+1}</td><td style="text-align:center;font-weight:500">${id4}</td><td>${nm}</td><td style="color:var(--gray-500)">${dob}</td>`;
+    if(curView===3) c=`<td style="text-align:center;color:var(--gray-500)">${i+1}</td><td style="text-align:center;font-weight:500">${id4}</td><td style="font-family:monospace;font-size:12px;letter-spacing:.05em">${id13}</td><td>${nm}</td><td style="color:var(--gray-500)">${dob}</td>`;
+    return `<tr class="${m?'male':'female'}">${c}</tr>`;
+  }).join('');
+}
+
+// ── PIN ───────────────────────────────────────────────────
+function openPin(){ pinVal=''; updDots(); document.getElementById('pinErr').textContent=''; document.getElementById('pinOverlay').classList.add('show'); }
+function closePin(){ document.getElementById('pinOverlay').classList.remove('show'); }
+function pk(d){ if(pinVal.length>=4)return; pinVal+=d; updDots(); if(pinVal.length===4)setTimeout(chkPin,120); }
+function pkDel(){ pinVal=pinVal.slice(0,-1); updDots(); }
+function pkClr(){ pinVal=''; updDots(); }
+function updDots(){ for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);d.classList.toggle('on',i<pinVal.length);d.classList.remove('err');} }
+function chkPin(){
+  if(pinVal===adminPin){ closePin(); enterAdmin(); }
+  else {
+    for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.add('err');
+    document.getElementById('pinErr').textContent='รหัสไม่ถูกต้อง';
+    setTimeout(()=>{ pinVal=''; updDots(); document.getElementById('pinErr').textContent=''; },900);
+  }
+}
+
+// ── Admin mode ────────────────────────────────────────────
+function enterAdmin(){
+  document.getElementById('viewerLayout').style.display='none';
+  document.getElementById('adminPanel').classList.add('show');
+  document.getElementById('adminPill').classList.add('show');
+  document.getElementById('adminExitBtn').style.display='inline-flex';
+  toast('เข้าสู่โหมดแอดมิน','ok');
+}
+function exitAdmin(){
+  document.getElementById('viewerLayout').style.display='flex';
+  document.getElementById('adminPanel').classList.remove('show');
+  document.getElementById('adminPill').classList.remove('show');
+  document.getElementById('adminExitBtn').style.display='none';
+}
+
+// ── Upload ────────────────────────────────────────────────
+function setupDrop(){
+  const dz=document.getElementById('dropZone'), fi=document.getElementById('fileIn');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0])});
+  fi.addEventListener('change',e=>{if(e.target.files[0])setFile(e.target.files[0])});
+}
+let pendingFile=null;
+function setFile(f){
+  pendingFile=f;
+  document.getElementById('fileName').textContent=f.name;
+  document.getElementById('fileBadge').classList.add('show');
+  document.getElementById('uploadBtn').disabled=false;
+  document.getElementById('syncMsg').innerHTML='';
+}
+function doUpload(){
+  if(!pendingFile)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1});
+    const data=raw.slice(2).filter(r=>r&&r.length>5).map(r=>({
+      'บัตรประชาชน': String(r[2]||''),
+      'ชั้น':         String(r[3]||''),
+      'ห้อง':         String(r[4]||''),
+      'รหัสนักเรียน': String(r[5]||''),
+      'เพศ':          String(r[6]||''),
+      'คำนำหน้าชื่อ': String(r[7]||''),
+      'ชื่อ':         String(r[8]||''),
+      'นามสกุล':      String(r[9]||''),
+      'วันเกิด':      String(r[10]||''),
+    }));
+    pushToSheets(data);
+  };
+  reader.readAsArrayBuffer(pendingFile);
+}
+async function pushToSheets(data){
+  const btn=document.getElementById('uploadBtn'), st=document.getElementById('uploadSt'), msg=document.getElementById('syncMsg');
+  btn.disabled=true;
+  btn.innerHTML='<span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0"></span> กำลังบันทึก...';
+  st.textContent=`อ่าน ${data.length} รายการ...`;
+  msg.innerHTML='';
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'saveStudents',students:data})});
+    const json=await res.json();
+    if(json.success){
+      msg.className='sync-msg ok'; msg.textContent='✓ '+json.message;
+      toast(json.message,'ok');
+      setStatus('ok','เชื่อมต่อแล้ว');
+    } else {
+      msg.className='sync-msg err'; msg.textContent='เกิดข้อผิดพลาด: '+json.message;
+    }
+  }catch(e){
+    msg.className='sync-msg err'; msg.textContent='เชื่อมต่อไม่ได้: '+e.message;
+  }
+  st.textContent='';
+  btn.disabled=false;
+  btn.innerHTML='<svg class="btn-ico" style="stroke:#fff" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> บันทึกลง Google Sheets';
+}
+
+// ── Save GAS URL ──────────────────────────────────────────
+function saveGasUrl(){
+  const v=document.getElementById('gasInput').value.trim();
+  if(!v){toast('กรุณากรอก URL','err');return;}
+  GAS_URL=v; localStorage.setItem('gasUrl',v);
+  toast('บันทึก URL แล้ว — กำลังโหลดข้อมูลใหม่','ok');
+  setTimeout(loadAll,600);
+}
+
+// ── Status / toast ────────────────────────────────────────
+function setStatus(cls,txt){
+  const el=document.getElementById('statusPill');
+  el.className='status-pill'+(cls?' '+cls:'');
+  document.getElementById('statusTxt').textContent=txt;
+}
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(type?' '+type:'');
+  setTimeout(()=>t.className='toast',3000);
+}
+</script>
+</body>
+</html>
