@@ -1,7 +1,8 @@
 const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbx7lwjrqXeo8IAcra6AfZXzndYaReqi94PkM1OjHokYs_1mde8XzmZB9xCIQQEhdXSC/exec';
 let GAS_URL   = localStorage.getItem('gasUrl') || GAS_URL_DEFAULT;
-let allData   = [], curClass = '', curView = 1;
-let adminPin  = '9999', schoolName = '', pinVal = '';
+let allData      = [], curClass = '', curView = 1;
+let adminPin     = '9999', schoolName = '', pinVal = '';
+let extraStudents = []; // นักเรียนจากชีท "เพิ่มเติม" พร้อม rowIndex
 const isMobile = () => window.innerWidth < 768;
 const classOrder = ['อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
 
@@ -53,6 +54,10 @@ async function loadAll() {
         'รหัสนักเรียน': r['รหัส 4 หลัก'] || ''
       }));
     });
+    // โหลด extra students
+    extraStudents = json.extra || [];
+    renderExtraList();
+
     if (allData.length) { initViewer(); setStatus('ok', 'เชื่อมต่อแล้ว'); }
     else { showV('noData'); setStatus('err', 'ยังไม่มีข้อมูล'); }
   } catch(e) {
@@ -78,29 +83,67 @@ function showV(name) {
   document.getElementById('noDataScreen').classList.toggle('active', name==='noData');
 }
 
+// ── อัปเดต sidebar count และ stats (เรียกได้ทุกเวลา) ─────────
+function updateCounts() {
+  var classes = classOrder.filter(function(c) { return allData.some(function(d) { return d['ชั้น']===c; }); });
+  var tot = allData.length;
+  var m   = allData.filter(function(d) { return d['เพศ']==='ช'; }).length;
+
+  // Stats row
+  var sr = document.getElementById('statsRow');
+  if (sr) {
+    sr.innerHTML =
+      '<div class="stat-card"><div class="stat-label">ทั้งหมด</div><div class="stat-val">' + tot + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">ชาย</div><div class="stat-val blue">' + m + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">หญิง</div><div class="stat-val pink">' + (tot-m) + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">ชั้น</div><div class="stat-val green">' + classes.length + '</div></div>';
+  }
+
+  // Sidebar cls-btn counts
+  document.querySelectorAll('.cls-btn').forEach(function(btn) {
+    var cls = btn.dataset.cls;
+    var n   = allData.filter(function(d) { return d['ชั้น']===cls; }).length;
+    var cb  = btn.querySelector('.cb');
+    if (cb) cb.textContent = n;
+  });
+
+  // Mobile bar counts
+  document.querySelectorAll('.mcls-btn').forEach(function(btn) {
+    var cls  = btn.dataset.cls;
+    var n    = allData.filter(function(d) { return d['ชั้น']===cls; }).length;
+    var span = btn.querySelector('span');
+    if (span) span.textContent = n;
+  });
+
+  // tCard header count (ชั้นที่กำลังดู)
+  if (curClass) {
+    var data    = allData.filter(function(d) { return d['ชั้น']===curClass; });
+    var males   = data.filter(function(d) { return d['เพศ']==='ช'; }).length;
+    var females = data.filter(function(d) { return d['เพศ']==='ญ'; }).length;
+    var cnt = document.getElementById('tCnt');
+    if (cnt) cnt.innerHTML = '<span class="cnt-m">ชาย ' + males + ' คน</span><span class="cnt-f">หญิง ' + females + ' คน</span>';
+  }
+}
+
 function initViewer() {
-  const classes = classOrder.filter(c => allData.some(d => d['ชั้น']===c));
+  var classes = classOrder.filter(function(c) { return allData.some(function(d) { return d['ชั้น']===c; }); });
+
   // Desktop sidebar
-  document.getElementById('clsButtons').innerHTML = classes.map(cls => {
-    const n = allData.filter(d=>d['ชั้น']===cls).length;
+  document.getElementById('clsButtons').innerHTML = classes.map(function(cls) {
+    var n = allData.filter(function(d) { return d['ชั้น']===cls; }).length;
     return '<button class="cls-btn" data-cls="' + cls + '" onclick="selClass(\'' + cls + '\')">' + cls + '<span class="cb">' + n + '</span></button>';
   }).join('');
-  // แสดง sidebar เฉพาะ desktop (CSS จะซ่อนบน mobile อยู่แล้ว)
   document.getElementById('sidebar').style.display = 'block';
+
   // Mobile class scroll bar
-  const mb = document.getElementById('mobileClsBar');
-  mb.innerHTML = classes.map(cls => {
-    const n = allData.filter(d=>d['ชั้น']===cls).length;
+  var mb = document.getElementById('mobileClsBar');
+  mb.innerHTML = classes.map(function(cls) {
+    var n = allData.filter(function(d) { return d['ชั้น']===cls; }).length;
     return '<button class="mcls-btn" data-cls="' + cls + '" onclick="selClass(\'' + cls + '\')">' + cls + ' <span style="opacity:.6;font-size:11px">' + n + '</span></button>';
   }).join('');
   mb.classList.add('show');
-  // Stats
-  const tot = allData.length, m = allData.filter(d=>d['เพศ']==='ช').length;
-  document.getElementById('statsRow').innerHTML = `
-    <div class="stat-card"><div class="stat-label">ทั้งหมด</div><div class="stat-val">${tot}</div></div>
-    <div class="stat-card"><div class="stat-label">ชาย</div><div class="stat-val blue">${m}</div></div>
-    <div class="stat-card"><div class="stat-label">หญิง</div><div class="stat-val pink">${tot-m}</div></div>
-    <div class="stat-card"><div class="stat-label">ชั้น</div><div class="stat-val green">${classes.length}</div></div>`;
+
+  updateCounts();
   showV('app');
   if (classes.length) selClass(classes[0]);
 }
@@ -344,6 +387,111 @@ function closePrintPreview() {
   document.getElementById('ppOverlay').classList.remove('show');
 }
 
+// ── Copy list ────────────────────────────────────────────────
+function copyList() {
+  var data  = allData.filter(function(d) { return d['ชั้น'] === curClass; });
+  if (!data.length) { toast('ไม่มีข้อมูลนักเรียน', 'err'); return; }
+  // เปิด options modal
+  openCopyOptions();
+}
+
+function getSortedRows() {
+  var data    = allData.filter(function(d) { return d['ชั้น'] === curClass; });
+  var males   = data.filter(function(d) { return d['เพศ']==='ช'; }).sort(function(a,b){ return (a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'); });
+  var females = data.filter(function(d) { return d['เพศ']==='ญ'; }).sort(function(a,b){ return (a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'); });
+  return males.concat(females);
+}
+
+function buildCopyText(rows) {
+  var sep = document.querySelector('input[name="co-sep"]:checked').value;
+  var sepChar = sep === 'tab' ? '\t' : sep === 'space' ? ' ' : sep === 'comma' ? ',' : '|';
+
+  var useNo       = document.getElementById('co-no').checked;
+  var useCode     = document.getElementById('co-code').checked;
+  var useId13     = document.getElementById('co-id13').checked;
+  var useFullname = document.getElementById('co-fullname').checked;
+  var usePrefix   = document.getElementById('co-prefix').checked;
+  var useFname    = document.getElementById('co-fname').checked;
+  var useLname    = document.getElementById('co-lname').checked;
+  var useDob      = document.getElementById('co-dob').checked;
+  var useGender   = document.getElementById('co-gender').checked;
+
+  return rows.map(function(s, i) {
+    var parts  = [];
+    var prefix = (s['คำนำหน้าชื่อ']||'').trim();
+    var fname  = s['ชื่อ']||'';
+    var lname  = s['นามสกุล']||'';
+    if (useNo)       parts.push(i + 1);
+    if (useCode)     parts.push(String(s['รหัสนักเรียน']||'').padStart(4,'0'));
+    if (useId13)     parts.push(s['บัตรประชาชน']||'');
+    if (useFullname) parts.push((prefix+' '+fname+' '+lname).trim());
+    if (usePrefix)   parts.push(prefix);
+    if (useFname)    parts.push(fname);
+    if (useLname)    parts.push(lname);
+    if (useDob)      parts.push(formatDob(s['วันเกิด']||''));
+    if (useGender)   parts.push(s['เพศ']==='ช' ? 'ชาย' : 'หญิง');
+    return parts.join(sepChar);
+  }).join('\n');
+}
+
+function openCopyOptions() {
+  var rows = getSortedRows();
+  updateCopyPreview(rows);
+
+  // ผูก event listener ให้ preview อัปเดต real-time
+  var inputs = document.querySelectorAll('#copyOverlay input');
+  inputs.forEach(function(el) {
+    el.onchange = function() { updateCopyPreview(rows); };
+  });
+
+  document.getElementById('copyOverlay').classList.add('show');
+}
+
+function updateCopyPreview(rows) {
+  var preview = document.getElementById('copyPreview');
+  if (!preview) return;
+  var text = buildCopyText(rows);
+  // แสดงแค่ 3 แถวแรกใน preview
+  var previewLines = text.split('\n').slice(0, 3);
+  if (text.split('\n').length > 3) previewLines.push('...');
+  preview.textContent = previewLines.join('\n');
+}
+
+function closeCopyOptions() {
+  document.getElementById('copyOverlay').classList.remove('show');
+}
+
+function doCopy() {
+  var rows = getSortedRows();
+  var text = buildCopyText(rows);
+  if (!text.trim()) { toast('กรุณาเลือกข้อมูลอย่างน้อย 1 ช่อง', 'err'); return; }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      toast('คัดลอก ' + rows.length + ' รายการแล้ว', 'ok');
+      closeCopyOptions();
+    }).catch(function() { fallbackCopy(text); });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    toast('คัดลอกแล้ว', 'ok');
+    closeCopyOptions();
+  } catch(e) {
+    toast('browser ไม่รองรับ กรุณาคัดลอกด้วยตนเอง', 'err');
+  }
+  document.body.removeChild(ta);
+}
+
 // ── Export Excel ───────────────────────────────────────────
 function exportExcel() {
   const sName = schoolName || 'โรงเรียนบ้านคลอง 14';
@@ -406,18 +554,31 @@ function exportExcel() {
 
 // ── Format date ───────────────────────────────────────────
 function formatDob(raw) {
-  if (!raw || raw === '-' || raw === 'undefined') return '-';
-  // รูปแบบ ISO: 2564-10-05T17:00:00.000Z หรือ 2021-10-05T...
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!raw || raw === '-' || raw === 'undefined' || raw === 'NaN') return '-';
+  var s = String(raw).trim();
+
+  // รูปแบบ dd/mm/yyyy อยู่แล้ว — คืนค่าเลย
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+
+  // รูปแบบ ISO: 2021-10-05T17:00:00.000Z หรือ 2564-10-05
+  var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) {
-    let y = parseInt(iso[1]);
-    // ถ้าปีน้อยกว่า 2500 แปลงจาก ค.ศ. เป็น พ.ศ.
+    var y = parseInt(iso[1]);
     if (y < 2500) y += 543;
-    return `${iso[3]}/${iso[2]}/${y}`;
+    return iso[3] + '/' + iso[2] + '/' + y;
   }
-  // รูปแบบ dd/mm/yyyy อยู่แล้ว
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
-  return raw;
+
+  // กรณี Google Sheets ส่งมาเป็น Date object แปลงเป็น string แล้ว
+  // เช่น "Sat Oct 06 2021 00:00:00 GMT+0700"
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    var dd = String(d.getDate()).padStart(2,'0');
+    var mm = String(d.getMonth()+1).padStart(2,'0');
+    var yyyy = d.getFullYear() + (d.getFullYear() < 2500 ? 543 : 0);
+    return dd + '/' + mm + '/' + yyyy;
+  }
+
+  return s;
 }
 
 // ── PIN ────────────────────────────────────────────────────
@@ -512,6 +673,255 @@ function saveGasUrl() {
   GAS_URL = v; localStorage.setItem('gasUrl', v);
   toast('บันทึก URL แล้ว — กำลังโหลดใหม่','ok');
   setTimeout(loadAll, 600);
+}
+
+// ── Extra Students List ─────────────────────────────────────
+function renderExtraList() {
+  var el = document.getElementById('extraList');
+  if (!el) return;
+  if (!extraStudents.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:13px">ยังไม่มีนักเรียนเพิ่มเติม</div>';
+    return;
+  }
+  var rows = extraStudents.map(function(s, i) {
+    var gender = (s['เพศ'] === 'ชาย' || s['เพศ'] === 'ช') ? 'ชาย' : 'หญิง';
+    var gColor = gender === 'ชาย' ? 'var(--blue)' : 'var(--pink)';
+    var prefix = s['คำนำหน้า'] || s['คำนำหน้าชื่อ'] || '';
+    var name   = prefix + (s['ชื่อ'] || '') + ' ' + (s['นามสกุล'] || '');
+    var cls    = s['ชั้น'] || '';
+    var note   = s['หมายเหตุ'] || '';
+    var ri     = s._rowIndex || 0;
+    return '<tr style="border-bottom:1px solid var(--gray-100)">' +
+      '<td style="padding:8px 10px;font-size:13px">' + name + '</td>' +
+      '<td style="padding:8px 10px;font-size:12px;color:' + gColor + '">' + gender + '</td>' +
+      '<td style="padding:8px 10px;font-size:12px;color:var(--gray-500)">' + cls + '</td>' +
+      '<td style="padding:8px 10px;font-size:11px;color:var(--gray-400)">' + note + '</td>' +
+      '<td style="padding:8px 10px;text-align:right">' +
+        '<button onclick="deleteExtra(' + i + ',' + ri + ')" style="font-size:11px;padding:3px 10px;border:1px solid #FECACA;background:#FEF2F2;color:var(--red);border-radius:6px;cursor:pointer;font-family:Sarabun,sans-serif">' +
+          '✕ ลบ' +
+        '</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+    '<thead><tr style="background:var(--gray-50);border-bottom:1px solid var(--gray-200)">' +
+      '<th style="padding:7px 10px;font-size:11px;font-weight:600;color:var(--gray-500);text-align:left">ชื่อ-นามสกุล</th>' +
+      '<th style="padding:7px 10px;font-size:11px;font-weight:600;color:var(--gray-500)">เพศ</th>' +
+      '<th style="padding:7px 10px;font-size:11px;font-weight:600;color:var(--gray-500)">ชั้น</th>' +
+      '<th style="padding:7px 10px;font-size:11px;font-weight:600;color:var(--gray-500)">หมายเหตุ</th>' +
+      '<th></th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+async function deleteExtra(idx, rowIndex) {
+  var s = extraStudents[idx];
+  var name = (s['คำนำหน้า']||s['คำนำหน้าชื่อ']||'') + (s['ชื่อ']||'') + ' ' + (s['นามสกุล']||'');
+  if (!confirm('ลบ "' + name.trim() + '" ออกจากชีทเพิ่มเติม?\nนักเรียนคนนี้จะหายจากรายชื่อบนเว็บทันที')) return;
+
+  try {
+    var res  = await fetch(GAS_URL, {method:'POST', body:JSON.stringify({action:'deleteExtraStudent', rowIndex:rowIndex})});
+    var json = await res.json();
+    if (json.success) {
+      toast(json.message, 'ok');
+      // ลบออกจาก extraStudents และ allData
+      extraStudents.splice(idx, 1);
+      // ลบออกจาก allData ด้วย (match ชื่อ+ชั้น)
+      allData = allData.filter(function(d) {
+        return !(d['ชื่อ'] === (s['ชื่อ']||'') && d['นามสกุล'] === (s['นามสกุล']||'') && d['ชั้น'] === (s['ชั้น']||''));
+      });
+      renderExtraList();
+      updateCounts();
+      if (curClass === s['ชั้น']) render();
+    } else {
+      toast('เกิดข้อผิดพลาด: ' + json.message, 'err');
+    }
+  } catch(e) {
+    toast('เชื่อมต่อไม่ได้: ' + e.message, 'err');
+  }
+}
+
+// ── Add Student Modal ────────────────────────────────────────
+function openAddStudent() {
+  // ตั้งค่า default ชั้นเป็นชั้นที่กำลังดูอยู่
+  var sel = document.getElementById('as-class');
+  if (sel && curClass) {
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === curClass) { sel.selectedIndex = i; break; }
+    }
+  }
+  // auto prefix/gender
+  document.getElementById('as-prefix').addEventListener('change', function() {
+    var g = document.getElementById('as-gender');
+    if (this.value === 'เด็กชาย' || this.value === 'นาย') g.value = 'ชาย';
+    else g.value = 'หญิง';
+  });
+  document.getElementById('as-msg').textContent = '';
+  document.getElementById('as-msg').style.color = '';
+  document.getElementById('addStudentOverlay').classList.add('show');
+}
+
+function closeAddStudent() {
+  document.getElementById('addStudentOverlay').classList.remove('show');
+  // reset form
+  ['as-fname','as-lname','as-code','as-id13','as-dob','as-note'].forEach(function(id) {
+    document.getElementById(id).value = '';
+  });
+}
+
+async function saveAddStudent() {
+  var fname  = document.getElementById('as-fname').value.trim();
+  var lname  = document.getElementById('as-lname').value.trim();
+  var cls    = document.getElementById('as-class').value;
+  var prefix = document.getElementById('as-prefix').value;
+  var gender = document.getElementById('as-gender').value;
+  var code   = document.getElementById('as-code').value.trim().padStart(4,'0');
+  var id13   = document.getElementById('as-id13').value.trim();
+  var dob    = document.getElementById('as-dob').value.trim();
+  var note   = document.getElementById('as-note').value.trim();
+  var msg    = document.getElementById('as-msg');
+
+  if (!fname || !lname || !cls) {
+    msg.textContent = '⚠ กรุณากรอกชื่อ นามสกุล และระดับชั้น';
+    msg.style.color = 'var(--red)';
+    return;
+  }
+
+  var btn = document.getElementById('as-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  msg.textContent = '';
+
+  var student = {
+    'คำนำหน้าชื่อ': prefix,
+    'ชื่อ': fname,
+    'นามสกุล': lname,
+    'เพศ': gender === 'ชาย' ? 'ช' : 'ญ',
+    'ชั้น': cls,
+    'ห้อง': '1',
+    'รหัสนักเรียน': code,
+    'บัตรประชาชน': id13,
+    'วันเกิด': dob,
+    'หมายเหตุ': note || 'เพิ่มเอง'
+  };
+
+  try {
+    var res  = await fetch(GAS_URL, {method:'POST', body:JSON.stringify({action:'addExtraStudent', student:student})});
+    var json = await res.json();
+    if (json.success) {
+      msg.textContent = '✓ บันทึกสำเร็จ';
+      msg.style.color = 'var(--green)';
+      toast('เพิ่มนักเรียนสำเร็จ', 'ok');
+      // เพิ่มใน extraStudents และ allData ทันที
+      var newExtra = {
+        _rowIndex: json.rowIndex || -1,
+        'คำนำหน้า': prefix, 'ชื่อ': fname, 'นามสกุล': lname,
+        'เพศ': gender === 'ชาย' ? 'ชาย' : 'หญิง',
+        'ชั้น': cls, 'ห้อง': '1', 'รหัส 4 หลัก': code,
+        'เลขบัตรประชาชน': id13, 'วันเกิด': dob, 'หมายเหตุ': note||'เพิ่มเอง'
+      };
+      extraStudents.push(newExtra);
+      allData.push({
+        'ชั้น': cls, 'ห้อง': '1',
+        'เพศ': student['เพศ'],
+        'คำนำหน้าชื่อ': prefix,
+        'ชื่อ': fname, 'นามสกุล': lname,
+        'วันเกิด': dob,
+        'บัตรประชาชน': id13,
+        'รหัสนักเรียน': code
+      });
+      renderExtraList();
+      updateCounts();
+      if (curClass === cls) render();
+      setTimeout(closeAddStudent, 1500);
+    } else {
+      msg.textContent = 'เกิดข้อผิดพลาด: ' + json.message;
+      msg.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    msg.textContent = 'เชื่อมต่อไม่ได้: ' + e.message;
+    msg.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<svg class="btn-ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> บันทึก';
+}
+
+// ── Print all classes ────────────────────────────────────────
+function printAllClasses() {
+  var sName = schoolName || document.getElementById('tbSchool').textContent || 'โรงเรียนบ้านคลอง 14';
+  var classes = classOrder.filter(function(c) { return allData.some(function(d) { return d['ชั้น'] === c; }); });
+  if (!classes.length) { toast('ไม่มีข้อมูลนักเรียน', 'err'); return; }
+
+  var viewNames = {1:'รายชื่อนักเรียน',2:'รายชื่อพร้อมวันเกิด',3:'รายชื่อพร้อมรหัสบัตรประชาชน',4:'รายชื่อพร้อมช่องบันทึกคะแนน'};
+  var hMap = {
+    1:['เลขที่','รหัส','ชื่อ-นามสกุล'],
+    2:['เลขที่','รหัส','ชื่อ-นามสกุล','วันเกิด'],
+    3:['เลขที่','รหัส','รหัสบัตรประชาชน','ชื่อ-นามสกุล','วันเกิด'],
+    4:['เลขที่','รหัส','ชื่อ-นามสกุล'].concat(Array.from({length:8}, function(){return '';}))
+  };
+
+  var allPages = '';
+  classes.forEach(function(cls, ci) {
+    var data    = allData.filter(function(d) { return d['ชั้น'] === cls; });
+    var males   = data.filter(function(d) { return d['เพศ']==='ช'; }).sort(function(a,b){ return (a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'); });
+    var females = data.filter(function(d) { return d['เพศ']==='ญ'; }).sort(function(a,b){ return (a['ชื่อ']||'').localeCompare(b['ชื่อ']||'','th'); });
+    var rows    = males.concat(females);
+    var nRows   = rows.length;
+    var perRow  = 650 / Math.max(nRows, 1);
+    var fs      = Math.min(10, Math.max(6.5, (perRow - 5) / 1.6));
+    var fsStr   = fs.toFixed(1);
+    var noW=22, codeW=32;
+    var colStyle = '';
+    if (curView===4) {
+      var nW=185, sW=Math.floor((539-noW-codeW-185)/8);
+      colStyle = 'th:nth-child(1),td:nth-child(1){width:'+noW+'pt}th:nth-child(2),td:nth-child(2){width:'+codeW+'pt}th:nth-child(3),td:nth-child(3){width:'+nW+'pt}th:nth-child(n+4),td:nth-child(n+4){width:'+sW+'pt}';
+    } else if (curView===3) {
+      colStyle = 'th:nth-child(1),td:nth-child(1){width:'+noW+'pt}th:nth-child(2),td:nth-child(2){width:'+codeW+'pt}th:nth-child(3),td:nth-child(3){width:110pt}th:nth-child(4),td:nth-child(4){width:250pt}th:nth-child(5),td:nth-child(5){width:65pt}';
+    } else if (curView===2) {
+      colStyle = 'th:nth-child(1),td:nth-child(1){width:'+noW+'pt}th:nth-child(2),td:nth-child(2){width:'+codeW+'pt}th:nth-child(3),td:nth-child(3){width:420pt}th:nth-child(4),td:nth-child(4){width:65pt}';
+    }
+
+    var ths = hMap[curView].map(function(h) {
+      return '<th style="border:.75pt solid #000;padding:3pt 4pt;font-weight:700;text-align:center;font-size:'+fsStr+'pt">'+h+'</th>';
+    }).join('');
+
+    var tbody = rows.map(function(s,i) {
+      var id4  = String(s['รหัสนักเรียน']||'').padStart(4,'0');
+      var id13 = s['บัตรประชาชน']||'';
+      var nm   = (s['คำนำหน้าชื่อ']||'').trim()+(s['ชื่อ']||'')+' '+(s['นามสกุล']||'');
+      var dob  = formatDob(s['วันเกิด']||'');
+      var bg   = i%2===1 ? 'background:#f5f5f5' : 'background:#fff';
+      var td = function(t,st) { return '<td style="border:.6pt solid #000;padding:2.5pt 4pt;white-space:nowrap;'+bg+';'+(st||'')+'">'+t+'</td>'; };
+      var ctr = 'text-align:center';
+      var cells = '';
+      if (curView===1) cells=td(i+1,ctr)+td(id4,ctr)+td(nm,'');
+      else if (curView===2) cells=td(i+1,ctr)+td(id4,ctr)+td(nm,'')+td(dob,ctr);
+      else if (curView===3) cells=td(i+1,ctr)+td(id4,ctr)+td(id13,'font-family:monospace;font-size:9pt')+td(nm,'')+td(dob,ctr);
+      else cells=td(i+1,ctr)+td(id4,ctr)+td(nm,'')+Array.from({length:8},function(){return td('','');}).join('');
+      return '<tr>'+cells+'</tr>';
+    }).join('');
+
+    var pageBreak = ci > 0 ? 'page-break-before:always;' : '';
+    allPages += '<div style="'+pageBreak+'padding:0">';
+    allPages += '<div style="text-align:center;margin-bottom:8pt;padding-bottom:6pt;border-bottom:1.5pt solid #000;font-family:Sarabun,sans-serif">';
+    allPages += '<div style="font-size:'+(fs+3).toFixed(1)+'pt;font-weight:700;margin-bottom:2pt">'+sName+'</div>';
+    allPages += '<div style="font-size:'+(fs+2).toFixed(1)+'pt;font-weight:600;margin-bottom:1pt">'+viewNames[curView]+' ชั้น '+cls+'</div>';
+    allPages += '<div style="font-size:'+(fs+1).toFixed(1)+'pt;color:#333">ภาคเรียนที่ 1/2569</div></div>';
+    allPages += '<table style="width:100%;border-collapse:collapse;font-size:'+fsStr+'pt;font-family:Sarabun,sans-serif;'+(curView===1?'table-layout:auto':'table-layout:fixed')+'"><style>'+colStyle+'</style>';
+    allPages += '<thead><tr>'+ths+'</tr></thead><tbody>'+tbody+'</tbody></table></div>';
+  });
+
+  var printDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
+  printDoc += '<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">';
+  printDoc += '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Sarabun,sans-serif;background:#fff;color:#000}';
+  printDoc += '@page{size:A4 portrait;margin:12mm 10mm 12mm 12mm}</style></head><body>';
+  printDoc += allPages + '</body></html>';
+
+  var w = window.open('', '_blank');
+  if (!w) { toast('กรุณาอนุญาต Pop-up ใน browser', 'err'); return; }
+  w.document.open();
+  w.document.write(printDoc);
+  w.document.close();
+  setTimeout(function() { w.focus(); w.print(); w.close(); }, 1000);
 }
 
 // ── Status / Toast ─────────────────────────────────────────
