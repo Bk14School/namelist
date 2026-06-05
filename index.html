@@ -274,6 +274,9 @@ tbody tr.female{background:#FFFAFC}
   .pp-body{padding:12px}
 }
 
+.copy-opt-chk,.copy-opt-sep{display:flex;align-items:center;gap:6px;font-size:13px;font-family:'Sarabun',sans-serif;color:var(--gray-700);padding:5px 8px;border:1px solid var(--gray-200);border-radius:6px;cursor:pointer;transition:background .12s;background:#fff}
+.copy-opt-chk:hover,.copy-opt-sep:hover{background:var(--gray-50)}
+.copy-opt-chk input,.copy-opt-sep input{accent-color:var(--blue);cursor:pointer}
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--gray-900);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:var(--shadow-md);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -418,13 +421,21 @@ tbody tr.female{background:#FFFAFC}
             <button class="vbtn" data-v="4">แบบ 4 — ช่องคะแนน</button>
           </div>
           <div class="tright">
+            <button class="btn" onclick="copyList()" title="คัดลอกรายชื่อ">
+              <svg class="btn-ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              คัดลอก
+            </button>
             <button class="btn" onclick="exportExcel()" title="ส่งออก Excel">
               <svg class="btn-ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="12" y1="12" x2="12" y2="18"/></svg>
               Excel
             </button>
             <button class="btn" onclick="openPrintPreview()" title="ตัวอย่างก่อนพิมพ์">
               <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-              พิมพ์
+              พิมพ์ชั้นนี้
+            </button>
+            <button class="btn" onclick="printAllClasses()" title="พิมพ์ทุกชั้น">
+              <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              ทุกชั้น
             </button>
           </div>
         </div>
@@ -458,10 +469,16 @@ tbody tr.female{background:#FFFAFC}
 <!-- Admin panel -->
 <div id="adminPanel">
   <div class="apanel-hdr">
-    <h2>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      จัดการข้อมูลนักเรียน
-    </h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+      <h2 style="margin:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        จัดการข้อมูลนักเรียน
+      </h2>
+      <button class="btn primary" onclick="openAddStudent()">
+        <svg class="btn-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        เพิ่มนักเรียน
+      </button>
+    </div>
     <p>อัปโหลดไฟล์ข้อมูลดิบเพื่ออัปเดตรายชื่อนักเรียนใน Google Sheets</p>
   </div>
 
@@ -489,6 +506,18 @@ tbody tr.female{background:#FFFAFC}
       <span id="uploadSt" style="font-size:13px;color:var(--gray-500)"></span>
     </div>
     <div id="syncMsg"></div>
+  </div>
+
+  <!-- Extra students list card -->
+  <div class="acard" id="extraStudentsCard">
+    <div class="acard-title">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      รายการนักเรียนเพิ่มเติม
+    </div>
+    <div class="acard-sub">นักเรียนที่เพิ่มเองนอกข้อมูลดิบ — กดลบได้ถ้าข้อมูลดิบมีรายชื่อนั้นแล้ว</div>
+    <div id="extraList">
+      <div style="text-align:center;padding:20px;color:var(--gray-400);font-size:13px">กำลังโหลด...</div>
+    </div>
   </div>
 
   <div class="acard">
@@ -533,6 +562,112 @@ tbody tr.female{background:#FFFAFC}
       <div class="pp-page" id="ppPage">
         <!-- content injected by JS -->
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Copy Options Modal -->
+<div class="pin-overlay" id="copyOverlay" onclick="if(event.target===this)closeCopyOptions()">
+  <div class="pin-modal" style="width:380px;max-width:95vw;text-align:left;border-radius:var(--radius-lg);padding:24px">
+    <h3 style="font-size:15px;font-weight:600;margin-bottom:4px;font-family:'Sarabun',sans-serif">ตั้งค่าการคัดลอก</h3>
+    <p style="font-size:12px;color:var(--gray-500);margin-bottom:16px">เลือกข้อมูลที่ต้องการ และรูปแบบตัวคั่น</p>
+
+    <!-- คอลัมน์ -->
+    <div style="font-size:12px;font-weight:500;color:var(--gray-700);margin-bottom:8px">ข้อมูลที่ต้องการ</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px">
+      <label class="copy-opt-chk"><input type="checkbox" id="co-no" checked> เลขที่</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-code"> รหัสนักเรียน</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-id13"> รหัสบัตรประชาชน</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-fullname"> ชื่อเต็ม (คำนำหน้า+ชื่อ+สกุล)</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-prefix"> คำนำหน้า</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-fname" checked> ชื่อ</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-lname" checked> นามสกุล</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-dob"> วันเกิด</label>
+      <label class="copy-opt-chk"><input type="checkbox" id="co-gender"> เพศ</label>
+    </div>
+
+    <!-- ตัวคั่น -->
+    <div style="font-size:12px;font-weight:500;color:var(--gray-700);margin-bottom:8px">ตัวคั่นระหว่างคอลัมน์</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+      <label class="copy-opt-sep"><input type="radio" name="co-sep" value="tab" checked> Tab <span style="opacity:.5;font-size:10px">(วางใน Excel)</span></label>
+      <label class="copy-opt-sep"><input type="radio" name="co-sep" value="space"> ช่องว่าง</label>
+      <label class="copy-opt-sep"><input type="radio" name="co-sep" value="comma"> จุลภาค (,)</label>
+      <label class="copy-opt-sep"><input type="radio" name="co-sep" value="pipe"> แท่ง (|)</label>
+    </div>
+
+    <!-- ตัวอย่าง -->
+    <div style="font-size:11px;color:var(--gray-500);margin-bottom:6px">ตัวอย่าง</div>
+    <div id="copyPreview" style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;font-size:12px;font-family:monospace;color:var(--gray-700);white-space:pre;overflow-x:auto;min-height:36px;max-height:80px;overflow-y:auto"></div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn" onclick="closeCopyOptions()">ยกเลิก</button>
+      <button class="btn primary" onclick="doCopy()">
+        <svg class="btn-ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        คัดลอก
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Student Modal -->
+<div class="pin-overlay" id="addStudentOverlay" onclick="if(event.target===this)closeAddStudent()">
+  <div class="pin-modal" style="width:420px;max-width:95vw;text-align:left;border-radius:var(--radius-lg);padding:24px">
+    <h3 style="font-size:16px;margin-bottom:4px;font-family:'Sarabun',sans-serif;font-weight:600">เพิ่มนักเรียน</h3>
+    <p style="font-size:12px;color:var(--gray-500);margin-bottom:16px">บันทึกลงชีท "เพิ่มเติม" ใน Google Sheets</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="margin:0">
+        <label>คำนำหน้า</label>
+        <select id="as-prefix" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+          <option>เด็กชาย</option><option>เด็กหญิง</option>
+          <option>นาย</option><option>นางสาว</option>
+        </select>
+      </div>
+      <div class="fg" style="margin:0">
+        <label>เพศ</label>
+        <select id="as-gender" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+          <option value="ชาย">ชาย</option><option value="หญิง">หญิง</option>
+        </select>
+      </div>
+      <div class="fg" style="margin:0">
+        <label>ชื่อ</label>
+        <input type="text" id="as-fname" placeholder="ชื่อจริง" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+      </div>
+      <div class="fg" style="margin:0">
+        <label>นามสกุล</label>
+        <input type="text" id="as-lname" placeholder="นามสกุล" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+      </div>
+      <div class="fg" style="margin:0">
+        <label>ระดับชั้น</label>
+        <select id="as-class" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+          <option>อ.2</option><option>อ.3</option><option>ป.1</option><option>ป.2</option>
+          <option>ป.3</option><option>ป.4</option><option>ป.5</option><option>ป.6</option>
+          <option>ม.1</option><option>ม.2</option><option>ม.3</option>
+        </select>
+      </div>
+      <div class="fg" style="margin:0">
+        <label>รหัสนักเรียน (4 หลัก)</label>
+        <input type="text" id="as-code" placeholder="0000" maxlength="4" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+      </div>
+      <div class="fg" style="margin:0">
+        <label>เลขบัตรประชาชน</label>
+        <input type="text" id="as-id13" placeholder="13 หลัก" maxlength="13" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+      </div>
+      <div class="fg" style="margin:0">
+        <label>วันเกิด</label>
+        <input type="text" id="as-dob" placeholder="dd/mm/yyyy" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+      </div>
+      <div class="fg" style="margin:0;grid-column:1/-1">
+        <label>หมายเหตุ</label>
+        <input type="text" id="as-note" placeholder="เพิ่มเอง / โอนย้าย / อื่นๆ" style="width:100%;padding:8px;border:1px solid var(--gray-300);border-radius:7px;font-family:'Sarabun',sans-serif;font-size:13px">
+      </div>
+    </div>
+    <div id="as-msg" style="font-size:12px;margin-top:10px;min-height:16px"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn" onclick="closeAddStudent()">ยกเลิก</button>
+      <button class="btn primary" id="as-save-btn" onclick="saveAddStudent()">
+        <svg class="btn-ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        บันทึก
+      </button>
     </div>
   </div>
 </div>
