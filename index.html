@@ -573,14 +573,13 @@ tbody tr.female{background:#FFFAFC}
       <div class="pick-side">
         <strong id="pickCount">เลือกแล้ว 0 คน</strong>
         <div class="pick-selected" id="pickSelected"></div>
-        <div class="pick-actions"><button class="btn" onclick="clearPicker()">ล้างที่เลือก</button><button class="btn" onclick="copyPicked()">คัดลอกรายชื่อ</button><button class="btn" onclick="exportPicked()">Excel</button></div>
+        <div class="pick-actions"><button class="btn" onclick="clearPicker()">ล้างที่เลือก</button><button class="btn" onclick="copyPicked()">คัดลอกรายชื่อ</button><button class="btn" onclick="exportPicked()">Excel</button><button class="btn" onclick="printPicked()">พิมพ์รายชื่อ</button></div>
         <label for="recordType">ประเภท</label><select id="recordType" onchange="updateRecordFields()"><option value="activity">กิจกรรม</option><option value="late">มาสาย</option><option value="conduct">ผิดระเบียบ</option></select>
         <label for="recordDate">วันที่</label><input id="recordDate" type="date">
         <div id="recordNameWrap"><label for="recordName">ชื่อกิจกรรม</label><input id="recordName" type="text" maxlength="120" placeholder="เช่น กีฬาสี"></div>
         <label for="recordNote">หมายเหตุ</label><textarea id="recordNote" rows="2" maxlength="500" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"></textarea>
-        <label for="recordPin">รหัสบันทึกรายการ</label><input id="recordPin" type="password" autocomplete="off" placeholder="รหัสที่ตั้งใน Apps Script">
         <div class="pick-actions"><button class="btn primary" id="recordSaveBtn" onclick="savePickedRecord()">บันทึกรายการ</button><button class="btn" onclick="loadRecords()">ดูประวัติ</button></div>
-        <h3>ประวัติรายการ</h3><input id="recordHistorySearch" type="search" oninput="renderRecordHistory()" placeholder="ค้นหาชื่อนักเรียนหรือรายการ" aria-label="ค้นหาประวัติ"><div class="pick-history" id="recordHistory"><span class="pick-muted">กรอกรหัสแล้วกดดูประวัติ</span></div>
+        <h3>ประวัติรายการ</h3><input id="recordHistorySearch" type="search" oninput="renderRecordHistory()" placeholder="ค้นหาชื่อนักเรียนหรือรายการ" aria-label="ค้นหาประวัติ"><div class="pick-history" id="recordHistory"><span class="pick-muted">กดดูประวัติเพื่อแสดงรายการ</span></div>
       </div>
     </div>
   </div>
@@ -751,6 +750,6 @@ tbody tr.female{background:#FFFAFC}
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20261006-3"></script>
+<script src="app.js?v=20261006-4"></script>
 </body>
 </html>

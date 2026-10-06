@@ -1032,10 +1032,9 @@ function openPicker() {
 
 function closePicker() {
   document.getElementById('pickOverlay').classList.remove('show');
-  document.getElementById('recordPin').value = '';
   document.getElementById('recordHistorySearch').value = '';
   loadedRecords = [];
-  document.getElementById('recordHistory').textContent = 'กรอกรหัสแล้วกดดูประวัติ';
+  document.getElementById('recordHistory').textContent = 'กดดูประวัติเพื่อแสดงรายการ';
 }
 
 function renderPickerStudents() {
@@ -1070,15 +1069,14 @@ function renderPickerStudents() {
 }
 
 function renderPicked() {
-  const indices = [...pickedStudents].filter(i => allData[i]);
-  document.getElementById('pickCount').textContent = `เลือกแล้ว ${indices.length} คน`;
+  const students = pickedRows();
+  document.getElementById('pickCount').textContent = `เลือกแล้ว ${students.length} คน`;
   const list = document.getElementById('pickSelected');
   list.replaceChildren();
-  if (!indices.length) { list.textContent = 'ยังไม่ได้เลือกนักเรียน'; return; }
-  indices.forEach(i => {
-    const s = allData[i];
+  if (!students.length) { list.textContent = 'ยังไม่ได้เลือกนักเรียน'; return; }
+  students.forEach(s => {
     const line = document.createElement('div');
-    line.textContent = `${s['ชั้น']} ${s['คำนำหน้าชื่อ'] || ''}${s['ชื่อ'] || ''} ${s['นามสกุล'] || ''}`;
+    line.textContent = `${s.cls} ${s.prefix}${s.firstName} ${s.lastName}`;
     list.appendChild(line);
   });
 }
@@ -1090,7 +1088,14 @@ function clearPicker() {
 }
 
 function pickedRows() {
-  return [...pickedStudents].filter(i => allData[i]).map(i => {
+  const classRank = cls => {
+    const rank = classOrder.indexOf(cls);
+    return rank < 0 ? classOrder.length : rank;
+  };
+  return [...pickedStudents].filter(i => allData[i]).sort((a, b) => {
+    const rank = classRank(allData[a]['ชั้น']) - classRank(allData[b]['ชั้น']);
+    return rank || a - b;
+  }).map(i => {
     const s = allData[i];
     return { cls: s['ชั้น'] || '', room: s['ห้อง'] || '', code: s['รหัสนักเรียน'] || '',
       prefix: s['คำนำหน้าชื่อ'] || '', firstName: s['ชื่อ'] || '', lastName: s['นามสกุล'] || '' };
@@ -1121,6 +1126,31 @@ function exportPicked() {
   XLSX.writeFile(book, 'รายชื่อนักเรียนที่เลือก.xlsx');
 }
 
+function printPicked() {
+  const rows = selectedTable();
+  if (!rows.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
+  const escapeHtml = value => String(value).replace(/[&<>"']/g, char =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+  const school = schoolName || document.getElementById('tbSchool').textContent || 'โรงเรียนบ้านคลอง 14';
+  const body = rows.map(row => `<tr>${row.map(value => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`).join('');
+  const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายชื่อนักเรียนที่เลือก</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>@page{size:A4 portrait;margin:12mm}body{font-family:Sarabun,sans-serif;color:#111}
+    h1,h2,p{text-align:center;margin:0}h1{font-size:16pt}h2{font-size:14pt;margin-top:3mm}p{font-size:10pt;margin:2mm 0 7mm}
+    table{border-collapse:collapse;width:100%;font-size:11pt}th,td{border:1px solid #333;padding:5px 7px}
+    th:nth-child(1),td:nth-child(1){width:8%;text-align:center}th:nth-child(2),td:nth-child(2){width:13%;text-align:center}
+    th:nth-child(3),td:nth-child(3){width:18%;text-align:center}thead{display:table-header-group}tr{break-inside:avoid}</style>
+    </head><body><h1>${escapeHtml(school)}</h1><h2>รายชื่อนักเรียนที่เลือก</h2><p>รวม ${rows.length} คน</p>
+    <table><thead><tr><th>ลำดับ</th><th>ชั้น</th><th>รหัสนักเรียน</th><th>ชื่อ-นามสกุล</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return toast('กรุณาอนุญาต Pop-up ก่อนพิมพ์', 'err');
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  const ready = printWindow.document.fonts ? printWindow.document.fonts.ready : Promise.resolve();
+  ready.then(() => { printWindow.focus(); printWindow.print(); });
+}
+
 function updateRecordFields() {
   document.getElementById('recordNameWrap').style.display =
     document.getElementById('recordType').value === 'activity' ? 'block' : 'none';
@@ -1135,14 +1165,12 @@ async function savePickedRecord() {
   const type = document.getElementById('recordType').value;
   const name = document.getElementById('recordName').value.trim();
   const date = document.getElementById('recordDate').value;
-  const pin = document.getElementById('recordPin').value;
   if (!students.length || !date || (type === 'activity' && !name))
     return toast('เลือกนักเรียน วันที่ และชื่อกิจกรรม (ถ้ามี)', 'err');
-  if (!pin) return toast('กรอกรหัสบันทึกรายการ', 'err');
   const btn = document.getElementById('recordSaveBtn');
   btn.disabled = true;
   try {
-    const json = await recordRequest({ action: 'saveRecord', pin,
+    const json = await recordRequest({ action: 'saveRecord',
       record: { type, date, name: type === 'activity' ? name : '', note: document.getElementById('recordNote').value.trim(), students } });
     if (!json.success) throw new Error(json.message || 'บันทึกไม่สำเร็จ');
     toast(json.message, 'ok');
@@ -1153,12 +1181,10 @@ async function savePickedRecord() {
 }
 
 async function loadRecords() {
-  const pin = document.getElementById('recordPin').value;
-  if (!pin) return toast('กรอกรหัสบันทึกรายการ', 'err');
   const list = document.getElementById('recordHistory');
   list.textContent = 'กำลังโหลด...';
   try {
-    const json = await recordRequest({ action: 'getRecords', pin });
+    const json = await recordRequest({ action: 'getRecords' });
     if (!json.success) throw new Error(json.message || 'โหลดประวัติไม่สำเร็จ');
     loadedRecords = json.records;
     renderRecordHistory();
