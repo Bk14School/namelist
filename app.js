@@ -30,12 +30,31 @@ async function initApp() {
 }
 
 // ── Load all ──────────────────────────────────────────────
+async function fetchAllData() {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const separator = GAS_URL.includes('?') ? '&' : '?';
+      const res = await fetch(`${GAS_URL}${separator}action=getAll&_=${Date.now()}-${attempt}`, {
+        cache: 'no-store', credentials: 'omit'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) throw new Error('บริการตอบกลับไม่ใช่ JSON');
+      return await res.json();
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 async function loadAll() {
   showV('loading');
   setStatus('', 'กำลังโหลด...');
   try {
-    const res  = await fetch(`${GAS_URL}?action=getAll`);
-    const json = await res.json();
+    const json = await fetchAllData();
     if (!json.success) throw new Error(json.message);
     const cfg = json.config || {};
     adminPin   = cfg.admin_pin   || '9999';
