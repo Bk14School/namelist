@@ -591,6 +591,7 @@ tbody tr.female{background:#FFFAFC}
         <label for="recordType">ประเภท</label><select id="recordType" onchange="updateRecordFields()"><option value="activity">กิจกรรม</option><option value="late">มาสาย</option><option value="conduct">ผิดระเบียบ</option></select>
         <label for="recordDate">วันที่</label><input id="recordDate" type="date">
         <div id="recordNameWrap"><label for="recordName">ชื่อกิจกรรม</label><input id="recordName" type="text" maxlength="120" placeholder="เช่น กีฬาสี"></div>
+        <label for="recordTeacher">ครูผู้บันทึก (ไม่บังคับ)</label><input id="recordTeacher" type="text" maxlength="120" placeholder="ชื่อครูผู้บันทึก">
         <label for="recordNote">หมายเหตุ</label><textarea id="recordNote" rows="2" maxlength="500" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"></textarea>
         <div class="pick-actions"><button class="btn primary" id="recordSaveBtn" onclick="savePickedRecord()">บันทึกรายการ</button><button class="btn" onclick="loadRecords()">ดูประวัติ</button></div>
         <h3>ประวัติรายการ</h3><input id="recordHistorySearch" type="search" oninput="renderRecordHistory()" placeholder="ค้นหาชื่อนักเรียนหรือรายการ" aria-label="ค้นหาประวัติ"><div class="pick-history" id="recordHistory"><span class="pick-muted">กดดูประวัติเพื่อแสดงรายการ</span></div>
@@ -615,6 +616,7 @@ tbody tr.female{background:#FFFAFC}
         <label for="editType">ประเภท</label><select id="editType" onchange="updateEditFields()"><option value="activity">กิจกรรม</option><option value="late">มาสาย</option><option value="conduct">ผิดระเบียบ</option></select>
         <label for="editDate">วันที่</label><input id="editDate" type="date">
         <div id="editNameWrap"><label for="editName">ชื่อกิจกรรม</label><input id="editName" type="text" maxlength="120"></div>
+        <label for="editTeacher">ครูผู้บันทึก (ไม่บังคับ)</label><input id="editTeacher" type="text" maxlength="120" placeholder="ชื่อครูผู้บันทึก">
         <label for="editNote">หมายเหตุ</label><textarea id="editNote" rows="2" maxlength="500"></textarea>
         <div class="pick-actions"><button class="btn primary" id="editSaveBtn" onclick="saveEditedRecord()">บันทึกการแก้ไข</button><button class="btn" onclick="closeRecordEditor()">ยกเลิก</button></div>
       </div>
@@ -787,6 +789,6 @@ tbody tr.female{background:#FFFAFC}
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20261006-6"></script>
+<script src="app.js?v=20261006-7"></script>
 </body>
 </html>

@@ -1221,7 +1221,9 @@ async function savePickedRecord() {
   btn.disabled = true;
   try {
     const json = await recordRequest({ action: 'saveRecord', pin: pickerPin,
-      record: { type, date, name: type === 'activity' ? name : '', note: document.getElementById('recordNote').value.trim(), students } });
+      record: { type, date, name: type === 'activity' ? name : '',
+        teacher: document.getElementById('recordTeacher').value.trim(),
+        note: document.getElementById('recordNote').value.trim(), students } });
     if (!json.success) throw new Error(json.message || 'บันทึกไม่สำเร็จ');
     toast(json.message, 'ok');
     clearPicker();
@@ -1246,7 +1248,7 @@ function renderRecordHistory() {
     const list = document.getElementById('recordHistory');
     const query = document.getElementById('recordHistorySearch').value.trim().toLocaleLowerCase('th');
     const records = loadedRecords.filter(record =>
-      `${record.date} ${record.name} ${record.note} ${record.students.map(s => `${s.cls} ${s.prefix}${s.firstName} ${s.lastName}`).join(' ')}`
+      `${record.date} ${record.name} ${record.note} ${record.teacher || ''} ${record.students.map(s => `${s.cls} ${s.prefix}${s.firstName} ${s.lastName}`).join(' ')}`
         .toLocaleLowerCase('th').includes(query));
     list.replaceChildren();
     if (!records.length) { list.textContent = 'ไม่พบรายการ'; return; }
@@ -1257,6 +1259,7 @@ function renderRecordHistory() {
       const title = record.type === 'activity' ? ` · ${record.name}` : '';
       summary.textContent = `${record.date} · ${labels[record.type] || record.type}${title} (${record.students.length} คน)`;
       details.appendChild(summary);
+      if (record.teacher) { const teacher = document.createElement('div'); teacher.textContent = `ครูผู้บันทึก: ${record.teacher}`; details.appendChild(teacher); }
       if (record.note) { const note = document.createElement('div'); note.textContent = record.note; details.appendChild(note); }
       sortRecordStudents(record.students).forEach(s => {
         const line = document.createElement('div');
@@ -1286,7 +1289,7 @@ function printHistoryRecord(id) {
   const record = historyRecord(id);
   if (!record) return toast('ไม่พบรายการนี้ กรุณาโหลดประวัติใหม่', 'err');
   const labels = { activity: record.name || 'กิจกรรม', late: 'นักเรียนมาสาย', conduct: 'นักเรียนผิดระเบียบ' };
-  const details = [record.date, record.note].filter(Boolean).join(' · ');
+  const details = [record.date, record.teacher ? `ครูผู้บันทึก: ${record.teacher}` : '', record.note].filter(Boolean).join(' · ');
   printStudentList(record.students, labels[record.type] || 'รายชื่อนักเรียน', details);
 }
 
@@ -1307,6 +1310,7 @@ function openRecordEditor(id) {
   document.getElementById('editType').value = record.type;
   document.getElementById('editDate').value = record.date;
   document.getElementById('editName').value = record.type === 'activity' ? record.name : '';
+  document.getElementById('editTeacher').value = record.teacher || '';
   document.getElementById('editNote').value = record.note || '';
   updateEditFields();
   renderEditCandidates();
@@ -1389,6 +1393,7 @@ async function saveEditedRecord() {
   const type = document.getElementById('editType').value;
   const record = { type, date: document.getElementById('editDate').value,
     name: type === 'activity' ? document.getElementById('editName').value.trim() : '',
+    teacher: document.getElementById('editTeacher').value.trim(),
     note: document.getElementById('editNote').value.trim(), students: editingStudents };
   if (!record.students.length || !record.date || (type === 'activity' && !record.name))
     return toast('กรอกวันที่ ชื่อกิจกรรม (ถ้ามี) และเลือกนักเรียนอย่างน้อย 1 คน', 'err');
