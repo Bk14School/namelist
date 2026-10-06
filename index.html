@@ -560,6 +560,17 @@ tbody tr.female{background:#FFFAFC}
   </div>
 </div>
 
+<!-- รหัสสำหรับเปิดหน้าเลือกนักเรียน -->
+<div class="pin-overlay" id="pickerPinOverlay" role="dialog" aria-modal="true" aria-labelledby="pickerPinTitle" onclick="if(event.target===this)closePickerPin()">
+  <form class="pin-modal" onsubmit="unlockPicker(event)">
+    <h3 id="pickerPinTitle">รหัสเลือกนักเรียน</h3>
+    <p>กรอกรหัสที่กำหนดในชีท config เพื่อเลือกนักเรียนและบันทึกรายการ</p>
+    <input id="pickerPinInput" type="password" autocomplete="off" aria-label="รหัสเลือกนักเรียน" style="width:100%;margin-bottom:8px">
+    <div id="pickerPinError" role="alert" style="color:var(--red,#dc2626);font-size:13px;min-height:20px"></div>
+    <div class="pick-actions" style="justify-content:center"><button type="button" class="btn" onclick="closePickerPin()">ยกเลิก</button><button type="submit" class="btn primary" id="pickerPinSubmit">เข้าใช้งาน</button></div>
+  </form>
+</div>
+
 <!-- เลือกนักเรียนหลายชั้นและบันทึกรายการ -->
 <div class="pick-overlay" id="pickOverlay" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
   <div class="pick-modal">
@@ -750,6 +761,6 @@ tbody tr.female{background:#FFFAFC}
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20261006-4"></script>
+<script src="app.js?v=20261006-5"></script>
 </body>
 </html>

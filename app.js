@@ -1018,8 +1018,40 @@ function toast(msg, type='') {
 // ── เลือกนักเรียนหลายชั้น / บันทึกกิจกรรมและเหตุการณ์ ──────
 const pickedStudents = new Set();
 let loadedRecords = [];
+let pickerPin = '';
 
 function openPicker() {
+  document.getElementById('pickerPinInput').value = '';
+  document.getElementById('pickerPinError').textContent = '';
+  document.getElementById('pickerPinOverlay').classList.add('show');
+  document.getElementById('pickerPinInput').focus();
+}
+
+function closePickerPin() {
+  document.getElementById('pickerPinOverlay').classList.remove('show');
+  document.getElementById('pickerPinInput').value = '';
+  document.getElementById('pickerPinError').textContent = '';
+}
+
+async function unlockPicker(event) {
+  event.preventDefault();
+  const pin = document.getElementById('pickerPinInput').value.trim();
+  const error = document.getElementById('pickerPinError');
+  const button = document.getElementById('pickerPinSubmit');
+  if (!pin) { error.textContent = 'กรุณากรอกรหัส'; return; }
+  button.disabled = true;
+  error.textContent = '';
+  try {
+    const result = await bridgeRequest({ action: 'checkPickerPin', pin });
+    if (!result.success) throw new Error(result.message || 'รหัสไม่ถูกต้อง');
+    pickerPin = pin;
+    closePickerPin();
+    showPicker();
+  } catch (e) { error.textContent = e.message || 'ตรวจรหัสไม่สำเร็จ'; }
+  finally { button.disabled = false; }
+}
+
+function showPicker() {
   const classSelect = document.getElementById('pickClass');
   classSelect.replaceChildren(new Option('ทุกชั้น', ''));
   classOrder.filter(cls => allData.some(s => s['ชั้น'] === cls))
@@ -1032,6 +1064,8 @@ function openPicker() {
 
 function closePicker() {
   document.getElementById('pickOverlay').classList.remove('show');
+  pickerPin = '';
+  pickedStudents.clear();
   document.getElementById('recordHistorySearch').value = '';
   loadedRecords = [];
   document.getElementById('recordHistory').textContent = 'กดดูประวัติเพื่อแสดงรายการ';
@@ -1161,6 +1195,7 @@ async function recordRequest(payload) {
 }
 
 async function savePickedRecord() {
+  if (!pickerPin) return toast('กรุณากรอกรหัสเลือกนักเรียนอีกครั้ง', 'err');
   const students = pickedRows();
   const type = document.getElementById('recordType').value;
   const name = document.getElementById('recordName').value.trim();
@@ -1170,7 +1205,7 @@ async function savePickedRecord() {
   const btn = document.getElementById('recordSaveBtn');
   btn.disabled = true;
   try {
-    const json = await recordRequest({ action: 'saveRecord',
+    const json = await recordRequest({ action: 'saveRecord', pin: pickerPin,
       record: { type, date, name: type === 'activity' ? name : '', note: document.getElementById('recordNote').value.trim(), students } });
     if (!json.success) throw new Error(json.message || 'บันทึกไม่สำเร็จ');
     toast(json.message, 'ok');
@@ -1181,10 +1216,11 @@ async function savePickedRecord() {
 }
 
 async function loadRecords() {
+  if (!pickerPin) return toast('กรุณากรอกรหัสเลือกนักเรียนอีกครั้ง', 'err');
   const list = document.getElementById('recordHistory');
   list.textContent = 'กำลังโหลด...';
   try {
-    const json = await recordRequest({ action: 'getRecords' });
+    const json = await recordRequest({ action: 'getRecords', pin: pickerPin });
     if (!json.success) throw new Error(json.message || 'โหลดประวัติไม่สำเร็จ');
     loadedRecords = json.records;
     renderRecordHistory();
