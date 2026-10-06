@@ -22,6 +22,12 @@ function leaveStudent(index) {
     code: s['รหัสนักเรียน'] || '', prefix: s['คำนำหน้าชื่อ'] || '', firstName: s['ชื่อ'] || '', lastName: s['นามสกุล'] || '' };
 }
 
+function leaveOrder(a, b) {
+  const rank = cls => { const value = classOrder.indexOf(cls); return value < 0 ? classOrder.length : value; };
+  const difference = rank(a.student.cls) - rank(b.student.cls);
+  return difference || Number(a.student.number || 0) - Number(b.student.number || 0) || leaveName(a.student).localeCompare(leaveName(b.student), 'th');
+}
+
 async function showPickerTab(tab) {
   ['records', 'leave', 'settings'].forEach(name => {
     document.getElementById(name + 'Tab').classList.toggle('active', name === tab);
@@ -183,7 +189,7 @@ function renderLeaveDrafts() {
 async function createLeaveRequests() {
   if (!pickerPin) return toast('กรุณาเข้าด้วยรหัสเลือกนักเรียนอีกครั้ง', 'err');
   syncLeaveDrafts();
-  const requests = [...leaveDrafts.values()];
+  const requests = [...leaveDrafts.values()].sort(leaveOrder);
   if (!requests.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
   const missing = requests.find(d => !d.date || !d.outTime || !d.returnTime || !d.reason.trim() || !d.destination.trim() || !d.affairsTeacher);
   if (missing) return toast(`กรอกข้อมูลของ ${leaveName(missing.student)} ให้ครบ`, 'err');
@@ -238,6 +244,7 @@ function renderLeaveHistory() {
     groups.get(request.token).push(request);
   });
   groups.forEach((requests, token) => {
+    requests.sort(leaveOrder);
     const item = document.createElement('div'); item.className = 'leave-history-item';
     const pending = requests.filter(r => r.status === 'รอพิจารณา').length;
     const heading = document.createElement('strong');
@@ -283,7 +290,7 @@ function leavePrintCopy(request) {
 }
 
 function printLeaveGroup(token) {
-  const requests = leaveRequests.filter(request => request.token === token);
+  const requests = leaveRequests.filter(request => request.token === token).sort(leaveOrder);
   if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
   const popup = window.open('', '_blank');
   if (!popup) return toast('เบราว์เซอร์ปิดกั้นหน้าพิมพ์ กรุณาอนุญาตหน้าต่างใหม่', 'err');
@@ -311,7 +318,7 @@ async function unlockLeaveApproval(event) {
     const result = await bridgeRequest({ action: 'getLeaveApproval', token: approvalToken, deputyPin: pin });
     if (!result.success) throw new Error(result.message || 'เปิดคำขอไม่สำเร็จ');
     approvalPin = pin;
-    approvalRequests = result.requests || [];
+    approvalRequests = (result.requests || []).sort(leaveOrder);
     document.getElementById('approvalPinInput').value = '';
     document.getElementById('approvalUnlockForm').hidden = true;
     document.getElementById('approvalContent').hidden = false;
@@ -366,7 +373,7 @@ async function decideLeaveRequests(decisions) {
     if (!result.success) throw new Error(result.message || 'บันทึกผลไม่สำเร็จ');
     const updated = await bridgeRequest({ action: 'getLeaveApproval', token: approvalToken, deputyPin: approvalPin });
     if (!updated.success) throw new Error(updated.message || 'โหลดผลไม่สำเร็จ');
-    approvalRequests = updated.requests || [];
+    approvalRequests = (updated.requests || []).sort(leaveOrder);
     renderLeaveApproval();
     toast('บันทึกผลการพิจารณาแล้ว');
   } catch (error) { toast(error.message || 'บันทึกผลไม่สำเร็จ', 'err'); }
