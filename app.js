@@ -42,6 +42,7 @@ async function loadAll() {
     schoolName = cfg.school_name || '';
     if (schoolName) document.getElementById('tbSchool').textContent = schoolName;
     renderCfgLive(cfg);
+    pickedStudents.clear();
     allData = [];
     Object.entries(json.students || {}).forEach(([cls, rows]) => {
       rows.forEach(r => allData.push({
@@ -934,4 +935,180 @@ function toast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show' + (type ? ' '+type : '');
   setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── เลือกนักเรียนหลายชั้น / บันทึกกิจกรรมและเหตุการณ์ ──────
+const pickedStudents = new Set();
+let loadedRecords = [];
+
+function openPicker() {
+  const classSelect = document.getElementById('pickClass');
+  classSelect.replaceChildren(new Option('ทุกชั้น', ''));
+  classOrder.filter(cls => allData.some(s => s['ชั้น'] === cls))
+    .forEach(cls => classSelect.add(new Option(cls, cls)));
+  document.getElementById('recordDate').value = new Date().toLocaleDateString('sv-SE');
+  document.getElementById('pickOverlay').classList.add('show');
+  renderPickerStudents();
+  renderPicked();
+}
+
+function closePicker() {
+  document.getElementById('pickOverlay').classList.remove('show');
+  document.getElementById('recordPin').value = '';
+  document.getElementById('recordHistorySearch').value = '';
+  loadedRecords = [];
+  document.getElementById('recordHistory').textContent = 'กรอกรหัสแล้วกดดูประวัติ';
+}
+
+function renderPickerStudents() {
+  const cls = document.getElementById('pickClass').value;
+  const query = document.getElementById('pickSearch').value.trim().toLocaleLowerCase('th');
+  const list = document.getElementById('pickStudents');
+  list.replaceChildren();
+  let count = 0;
+  allData.forEach((s, index) => {
+    if (cls && s['ชั้น'] !== cls) return;
+    const fullName = `${s['คำนำหน้าชื่อ'] || ''}${s['ชื่อ'] || ''} ${s['นามสกุล'] || ''}`.trim();
+    if (query && !`${fullName} ${s['รหัสนักเรียน'] || ''}`.toLocaleLowerCase('th').includes(query)) return;
+    count++;
+    const row = document.createElement('label');
+    row.className = 'pick-row';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = pickedStudents.has(index);
+    box.addEventListener('change', () => {
+      if (box.checked) pickedStudents.add(index);
+      else pickedStudents.delete(index);
+      renderPicked();
+    });
+    const name = document.createElement('span');
+    name.textContent = fullName;
+    const meta = document.createElement('small');
+    meta.textContent = `${s['ชั้น']} · ${s['รหัสนักเรียน'] || ''}`;
+    row.append(box, name, meta);
+    list.appendChild(row);
+  });
+  document.getElementById('pickResultCount').textContent = `พบ ${count} คน`;
+}
+
+function renderPicked() {
+  const indices = [...pickedStudents].filter(i => allData[i]);
+  document.getElementById('pickCount').textContent = `เลือกแล้ว ${indices.length} คน`;
+  const list = document.getElementById('pickSelected');
+  list.replaceChildren();
+  if (!indices.length) { list.textContent = 'ยังไม่ได้เลือกนักเรียน'; return; }
+  indices.forEach(i => {
+    const s = allData[i];
+    const line = document.createElement('div');
+    line.textContent = `${s['ชั้น']} ${s['คำนำหน้าชื่อ'] || ''}${s['ชื่อ'] || ''} ${s['นามสกุล'] || ''}`;
+    list.appendChild(line);
+  });
+}
+
+function clearPicker() {
+  pickedStudents.clear();
+  renderPickerStudents();
+  renderPicked();
+}
+
+function pickedRows() {
+  return [...pickedStudents].filter(i => allData[i]).map(i => {
+    const s = allData[i];
+    return { cls: s['ชั้น'] || '', room: s['ห้อง'] || '', code: s['รหัสนักเรียน'] || '',
+      prefix: s['คำนำหน้าชื่อ'] || '', firstName: s['ชื่อ'] || '', lastName: s['นามสกุล'] || '' };
+  });
+}
+
+function selectedTable() {
+  return pickedRows().map((s, i) => [i + 1, s.cls, s.code,
+    `${s.prefix}${s.firstName} ${s.lastName}`.trim()]);
+}
+
+async function copyPicked() {
+  const rows = selectedTable();
+  if (!rows.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
+  const value = [['ลำดับ', 'ชั้น', 'รหัสนักเรียน', 'ชื่อ-นามสกุล'], ...rows]
+    .map(row => row.join('\t')).join('\n');
+  try { await navigator.clipboard.writeText(value); toast('คัดลอกรายชื่อแล้ว', 'ok'); }
+  catch (_) { toast('คัดลอกไม่ได้ กรุณาตรวจสิทธิ์คลิปบอร์ด', 'err'); }
+}
+
+function exportPicked() {
+  const rows = selectedTable();
+  if (!rows.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
+  if (typeof XLSX === 'undefined') return toast('ยังโหลดระบบ Excel ไม่สำเร็จ', 'err');
+  const sheet = XLSX.utils.aoa_to_sheet([['ลำดับ', 'ชั้น', 'รหัสนักเรียน', 'ชื่อ-นามสกุล'], ...rows]);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, 'รายชื่อที่เลือก');
+  XLSX.writeFile(book, 'รายชื่อนักเรียนที่เลือก.xlsx');
+}
+
+function updateRecordFields() {
+  document.getElementById('recordNameWrap').style.display =
+    document.getElementById('recordType').value === 'activity' ? 'block' : 'none';
+}
+
+async function recordRequest(payload) {
+  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+  return res.json();
+}
+
+async function savePickedRecord() {
+  const students = pickedRows();
+  const type = document.getElementById('recordType').value;
+  const name = document.getElementById('recordName').value.trim();
+  const date = document.getElementById('recordDate').value;
+  const pin = document.getElementById('recordPin').value;
+  if (!students.length || !date || (type === 'activity' && !name))
+    return toast('เลือกนักเรียน วันที่ และชื่อกิจกรรม (ถ้ามี)', 'err');
+  if (!pin) return toast('กรอกรหัสบันทึกรายการ', 'err');
+  const btn = document.getElementById('recordSaveBtn');
+  btn.disabled = true;
+  try {
+    const json = await recordRequest({ action: 'saveRecord', pin,
+      record: { type, date, name: type === 'activity' ? name : '', note: document.getElementById('recordNote').value.trim(), students } });
+    if (!json.success) throw new Error(json.message || 'บันทึกไม่สำเร็จ');
+    toast(json.message, 'ok');
+    clearPicker();
+    await loadRecords();
+  } catch (e) { toast(e.message, 'err'); }
+  finally { btn.disabled = false; }
+}
+
+async function loadRecords() {
+  const pin = document.getElementById('recordPin').value;
+  if (!pin) return toast('กรอกรหัสบันทึกรายการ', 'err');
+  const list = document.getElementById('recordHistory');
+  list.textContent = 'กำลังโหลด...';
+  try {
+    const json = await recordRequest({ action: 'getRecords', pin });
+    if (!json.success) throw new Error(json.message || 'โหลดประวัติไม่สำเร็จ');
+    loadedRecords = json.records;
+    renderRecordHistory();
+  } catch (e) { loadedRecords = []; list.textContent = e.message; }
+}
+
+function renderRecordHistory() {
+    const list = document.getElementById('recordHistory');
+    const query = document.getElementById('recordHistorySearch').value.trim().toLocaleLowerCase('th');
+    const records = loadedRecords.filter(record =>
+      `${record.date} ${record.name} ${record.note} ${record.students.map(s => `${s.cls} ${s.prefix}${s.firstName} ${s.lastName}`).join(' ')}`
+        .toLocaleLowerCase('th').includes(query));
+    list.replaceChildren();
+    if (!records.length) { list.textContent = 'ไม่พบรายการ'; return; }
+    const labels = { activity: 'กิจกรรม', late: 'มาสาย', conduct: 'ผิดระเบียบ' };
+    records.forEach(record => {
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      const title = record.type === 'activity' ? ` · ${record.name}` : '';
+      summary.textContent = `${record.date} · ${labels[record.type] || record.type}${title} (${record.students.length} คน)`;
+      details.appendChild(summary);
+      if (record.note) { const note = document.createElement('div'); note.textContent = record.note; details.appendChild(note); }
+      record.students.forEach(s => {
+        const line = document.createElement('div');
+        line.textContent = `${s.cls} ${s.prefix}${s.firstName} ${s.lastName}`;
+        details.appendChild(line);
+      });
+      list.appendChild(details);
+    });
 }
