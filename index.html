@@ -634,6 +634,9 @@ tbody tr.female{background:#FFFAFC}
             <label>ครูฝ่ายกิจการนักเรียน<select id="leaveDefaultAffairs"><option value="">เลือกครูผู้กรอก</option></select></label>
             <label>เวลาออก<input id="leaveDefaultOut" type="time"></label>
             <label>เวลากลับ<input id="leaveDefaultReturn" type="time"></label>
+            <label class="wide" style="display:flex;align-items:center;gap:8px"><input id="leaveDefaultNoReturn" type="checkbox" style="width:auto;margin:0" onchange="toggleLeaveDefaultReturn()">ไม่กลับเข้ามาในโรงเรียนในวันนั้น</label>
+            <label>ความเห็นครูที่ปรึกษา<select id="leaveDefaultAdvisorOpinion"><option value="">เลือกผลพิจารณา</option><option value="อนุญาต">เห็นควรอนุญาต</option><option value="ไม่อนุญาต">เห็นควรไม่อนุญาต</option></select></label>
+            <label>ความเห็นครูฝ่ายกิจการ<select id="leaveDefaultAffairsOpinion"><option value="">เลือกผลพิจารณา</option><option value="อนุญาต">เห็นควรอนุญาต</option><option value="ไม่อนุญาต">เห็นควรไม่อนุญาต</option></select></label>
             <label class="wide">ธุระ<textarea id="leaveDefaultReason" rows="2" maxlength="500" placeholder="เช่น ไปติดต่อหน่วยงานราชการ"></textarea></label>
             <label class="wide">สถานที่ติดต่อ<input id="leaveDefaultDestination" maxlength="300" placeholder="สถานที่ที่จะไป"></label>
           </div>
@@ -866,6 +869,6 @@ tbody tr.female{background:#FFFAFC}
 <div class="toast" id="toast"></div>
 
 <script src="app.js?v=20261006-8"></script>
-<script src="leave.js?v=20261007-2"></script>
+<script src="leave.js?v=20261007-3"></script>
 </body>
 </html>

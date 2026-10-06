@@ -244,7 +244,7 @@ function deleteRecord(id, pin) {
 
 // ── ใบขออนุญาตออกนอกบริเวณโรงเรียน ──────────────────────
 const LEAVE_CLASSES = ['อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
-const LEAVE_HEADERS = ['รหัสคำขอ','รหัสชุด','โทเคนอนุมัติ','วันที่','ชั้น','ห้อง','เลขที่','รหัสนักเรียน','คำนำหน้า','ชื่อ','นามสกุล','เวลาออก','เวลากลับ','ธุระ','สถานที่ติดต่อ','ครูฝ่ายกิจการ','ครูประจำชั้น','รองผู้อำนวยการ','ชื่อผู้ปกครอง','ผู้ปกครองมารับ','สถานะ','พิจารณาเมื่อ','ผู้พิจารณา','เหตุผลการพิจารณา','สร้างเมื่อ','ครูผู้กรอก'];
+const LEAVE_HEADERS = ['รหัสคำขอ','รหัสชุด','โทเคนอนุมัติ','วันที่','ชั้น','ห้อง','เลขที่','รหัสนักเรียน','คำนำหน้า','ชื่อ','นามสกุล','เวลาออก','เวลากลับ','ธุระ','สถานที่ติดต่อ','ครูฝ่ายกิจการ','ครูประจำชั้น','รองผู้อำนวยการ','ชื่อผู้ปกครอง','ผู้ปกครองมารับ','สถานะ','พิจารณาเมื่อ','ผู้พิจารณา','เหตุผลการพิจารณา','สร้างเมื่อ','ครูผู้กรอก','ความเห็นครูที่ปรึกษา','ความเห็นครูฝ่ายกิจการ','ไม่กลับเข้ามา'];
 
 function leaveSettingsSheet(ss) {
   let sheet = ss.getSheetByName('ตั้งค่าใบอนุญาต');
@@ -307,10 +307,23 @@ function leaveSheet(ss) {
   let sheet = ss.getSheetByName('ใบขอออกนอกบริเวณ');
   if (!sheet) {
     sheet = ss.insertSheet('ใบขอออกนอกบริเวณ');
+  }
+  if (sheet.getMaxColumns() < LEAVE_HEADERS.length)
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), LEAVE_HEADERS.length - sheet.getMaxColumns());
+  if (sheet.getLastRow() < 1) {
     sheet.getRange(1, 1, 1, LEAVE_HEADERS.length).setValues([LEAVE_HEADERS]);
     sheet.getRange(1, 1, 1, LEAVE_HEADERS.length).setBackground('#2563EB').setFontColor('#FFFFFF').setFontWeight('bold');
     sheet.setFrozenRows(1);
     sheet.getRange('H:H').setNumberFormat('@');
+  } else {
+    // เพิ่มคอลัมน์ท้ายชีทโดยคงใบขอเดิมและผลอนุมัติเดิมไว้
+    const start = LEAVE_HEADERS.length - 2;
+    const range = sheet.getRange(1, start, 1, 3);
+    const existing = range.getDisplayValues()[0];
+    const expected = LEAVE_HEADERS.slice(start - 1);
+    if (existing.some((value, i) => value && value !== expected[i]))
+      throw new Error('คอลัมน์ท้ายชีท ใบขอออกนอกบริเวณ ถูกใช้งานอยู่');
+    range.setValues([expected]).setBackground('#2563EB').setFontColor('#FFFFFF').setFontWeight('bold');
   }
   return sheet;
 }
@@ -323,7 +336,8 @@ function readLeaveRows(sheet) {
 function leaveRowObject(r) {
   return { id:r[0], groupId:r[1], date:r[3], student:{ cls:r[4], room:r[5], number:r[6], code:r[7], prefix:r[8], firstName:r[9], lastName:r[10] },
     outTime:r[11], returnTime:r[12], reason:r[13], destination:r[14], affairsTeacher:r[15], homeroomTeacher:r[16], deputyName:r[17],
-    guardianName:r[18], parentPickup:r[19] === 'ใช่', status:r[20], decidedAt:r[21], decidedBy:r[22], decisionNote:r[23], createdAt:r[24], recorder:r[25] };
+    guardianName:r[18], parentPickup:r[19] === 'ใช่', status:r[20], decidedAt:r[21], decidedBy:r[22], decisionNote:r[23], createdAt:r[24], recorder:r[25],
+    advisorOpinion:r[26] || '', affairsOpinion:r[27] || '', noReturn:r[28] === 'ใช่' };
 }
 
 function validLeaveToken(token) { return typeof token === 'string' && /^[a-f0-9-]{36}$/i.test(token); }
@@ -348,19 +362,21 @@ function createLeaveBatch(requests, pin) {
     const student = request && request.student;
     if (!student || !LEAVE_CLASSES.includes(student.cls) || !text(student.firstName) ||
         !/^\d{4}-\d{2}-\d{2}$/.test(request.date || '') ||
-        !/^\d{2}:\d{2}$/.test(request.outTime || '') || !/^\d{2}:\d{2}$/.test(request.returnTime || '') ||
+        !/^\d{2}:\d{2}$/.test(request.outTime || '') || (!request.noReturn && !/^\d{2}:\d{2}$/.test(request.returnTime || '')) ||
         !text(request.reason) || !text(request.destination))
       return response({ success: false, message: 'กรอกวันที่ เวลา ธุระ และสถานที่ของนักเรียนทุกคนให้ครบ' });
+    if (!['อนุญาต','ไม่อนุญาต'].includes(request.advisorOpinion) || !['อนุญาต','ไม่อนุญาต'].includes(request.affairsOpinion))
+      return response({ success: false, message: 'เลือกความเห็นครูที่ปรึกษาและครูฝ่ายกิจการให้ครบทุกคน' });
     if (!settings.affairsTeachers.includes(request.affairsTeacher))
       return response({ success: false, message: 'เลือกครูฝ่ายกิจการจากหน้าตั้งค่า' });
     const identity = [student.cls, student.code, student.firstName, student.lastName].join('|');
     if (seen.has(identity)) return response({ success: false, message: 'มีนักเรียนซ้ำในชุดคำขอ' });
     seen.add(identity);
     rows.push([Utilities.getUuid(), groupId, token, request.date, cell(student.cls), cell(student.room), cell(student.number, 20),
-      text(student.code, 30), cell(student.prefix), cell(student.firstName), cell(student.lastName), request.outTime, request.returnTime,
+      text(student.code, 30), cell(student.prefix), cell(student.firstName), cell(student.lastName), request.outTime, request.noReturn ? '' : request.returnTime,
       cell(request.reason, 500), cell(request.destination, 300), cell(request.affairsTeacher),
       cell(settings.homeroom[student.cls] || ''), cell(settings.deputyName), cell(request.guardianName), request.parentPickup ? 'ใช่' : 'ไม่ใช่',
-      'รอพิจารณา', '', '', '', now, cell(request.affairsTeacher)]);
+      'รอพิจารณา', '', '', '', now, cell(request.affairsTeacher), request.advisorOpinion, request.affairsOpinion, request.noReturn ? 'ใช่' : 'ไม่ใช่']);
   }
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);

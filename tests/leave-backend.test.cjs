@@ -4,8 +4,10 @@ const vm = require('node:vm');
 const { randomUUID } = require('node:crypto');
 
 class Sheet {
-  constructor(rows = []) { this.rows = rows; }
+  constructor(rows = []) { this.rows = rows; this.columns = 26; }
   getLastRow() { return this.rows.length; }
+  getMaxColumns() { return this.columns; }
+  insertColumnsAfter(_after, amount) { this.columns += amount; }
   getDataRange() { return this.getRange(1, 1, this.rows.length, Math.max(...this.rows.map(r => r.length), 1)); }
   getRange(row, column, height = 1, width = 1) {
     if (typeof row === 'string') return this.getRange(1, 1);
@@ -40,6 +42,10 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '..', 'Code.gs'), 'utf8'), context);
+const oldHeaders = vm.runInContext('LEAVE_HEADERS.slice(0, 26)', context);
+const oldRow = Array(26).fill('');
+oldRow[0] = randomUUID(); oldRow[2] = randomUUID(); oldRow[20] = 'อนุมัติ';
+sheets.set('ใบขอออกนอกบริเวณ', new Sheet([Array.from(oldHeaders), oldRow]));
 
 const call = (action, values) => context.bridgeApi({ action, ...values });
 assert.equal(context.readConfig(spreadsheet).deputy_pin, undefined);
@@ -51,18 +57,22 @@ assert.equal(call('saveLeaveSettings', { pin: 'staff-secret', settings: {
 } }).success, true);
 
 const requests = [
-  { student: { cls: 'ป.5', room: '1', number: '4', code: '5004', firstName: 'นักเรียนห้า', lastName: 'ตัวอย่าง' }, date: '2026-10-06', outTime: '09:00', returnTime: '11:00', reason: 'ธุระ ก', destination: 'สถานที่ ก', affairsTeacher: 'ครูฝ่ายกิจการ ก' },
-  { student: { cls: 'ป.3', room: '2', number: '7', code: '3007', firstName: 'นักเรียนสาม', lastName: 'ตัวอย่าง' }, date: '2026-10-06', outTime: '10:00', returnTime: '12:00', reason: 'ธุระ ข', destination: 'สถานที่ ข', affairsTeacher: 'ครูฝ่ายกิจการ ข' }
+  { student: { cls: 'ป.5', room: '1', number: '4', code: '5004', firstName: 'นักเรียนห้า', lastName: 'ตัวอย่าง' }, date: '2026-10-06', outTime: '09:00', returnTime: '11:00', reason: 'ธุระ ก', destination: 'สถานที่ ก', affairsTeacher: 'ครูฝ่ายกิจการ ก', advisorOpinion: 'อนุญาต', affairsOpinion: 'อนุญาต', noReturn: false },
+  { student: { cls: 'ป.3', room: '2', number: '7', code: '3007', firstName: 'นักเรียนสาม', lastName: 'ตัวอย่าง' }, date: '2026-10-06', outTime: '10:00', returnTime: '', reason: 'ธุระ ข', destination: 'สถานที่ ข', affairsTeacher: 'ครูฝ่ายกิจการ ข', advisorOpinion: 'ไม่อนุญาต', affairsOpinion: 'อนุญาต', noReturn: true }
 ];
 assert.equal(call('createLeaveBatch', { pin: 'wrong', requests }).success, false);
 const created = call('createLeaveBatch', { pin: 'staff-secret', requests });
 assert.equal(created.success, true);
 assert.equal(created.count, 2);
+assert.equal(sheets.get('ใบขอออกนอกบริเวณ').rows[0].length, 29);
+assert.equal(sheets.get('ใบขอออกนอกบริเวณ').rows[1][20], 'อนุมัติ');
 assert.equal(call('getLeaveApproval', { token: created.token, deputyPin: 'wrong' }).success, false);
 const view = call('getLeaveApproval', { token: created.token, deputyPin: 'deputy-secret' });
 assert.equal(view.success, true);
 assert.equal(view.requests.length, 2);
 assert.deepEqual(Array.from(view.requests, r => r.reason), ['ธุระ ก', 'ธุระ ข']);
+assert.deepEqual(Array.from(view.requests, r => r.noReturn), [false, true]);
+assert.deepEqual(Array.from(view.requests, r => r.advisorOpinion), ['อนุญาต', 'ไม่อนุญาต']);
 assert.equal(call('decideLeaveApproval', { token: created.token, deputyPin: 'wrong', decisions: [{ id: view.requests[0].id, status: 'อนุมัติ' }] }).success, false);
 assert.equal(call('decideLeaveApproval', { token: created.token, deputyPin: 'deputy-secret', decisions: [
   { id: view.requests[0].id, status: 'อนุมัติ' }, { id: view.requests[1].id, status: 'ไม่อนุมัติ', note: 'ให้ติดต่อผู้ปกครอง' }

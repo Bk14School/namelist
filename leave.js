@@ -6,6 +6,7 @@ let leaveRequests = [];
 let approvalPin = '';
 let approvalRequests = [];
 const approvalToken = new URLSearchParams(location.search).get('leaveApproval') || '';
+const LEAVE_SCHOOL = 'โรงเรียนบ้านคลอง 14 สพป.นครนายก';
 
 function leaveEscape(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, character =>
@@ -99,14 +100,25 @@ async function saveLeaveFormSettings() {
 }
 
 function leaveCommon() {
+  const noReturn = document.getElementById('leaveDefaultNoReturn').checked;
   return {
     date: document.getElementById('leaveDefaultDate').value,
     affairsTeacher: document.getElementById('leaveDefaultAffairs').value,
     outTime: document.getElementById('leaveDefaultOut').value,
-    returnTime: document.getElementById('leaveDefaultReturn').value,
+    returnTime: noReturn ? '' : document.getElementById('leaveDefaultReturn').value,
+    noReturn,
+    advisorOpinion: document.getElementById('leaveDefaultAdvisorOpinion').value,
+    affairsOpinion: document.getElementById('leaveDefaultAffairsOpinion').value,
     reason: document.getElementById('leaveDefaultReason').value.trim(),
     destination: document.getElementById('leaveDefaultDestination').value.trim()
   };
+}
+
+function toggleLeaveDefaultReturn() {
+  const noReturn = document.getElementById('leaveDefaultNoReturn').checked;
+  const input = document.getElementById('leaveDefaultReturn');
+  input.disabled = noReturn;
+  if (noReturn) input.value = '';
 }
 
 function syncLeaveDrafts() {
@@ -129,7 +141,12 @@ function applyLeaveDefaults() {
 
 function updateLeaveDraft(index, field, element) {
   const draft = leaveDrafts.get(index);
-  if (draft) draft[field] = field === 'parentPickup' ? element.checked : element.value;
+  if (!draft) return;
+  draft[field] = field === 'parentPickup' || field === 'noReturn' ? element.checked : element.value;
+  if (field === 'noReturn') {
+    if (draft.noReturn) draft.returnTime = '';
+    renderLeaveDrafts();
+  }
 }
 
 function renderLeaveDrafts() {
@@ -148,6 +165,7 @@ function renderLeaveDrafts() {
   const fields = [
     ['date', 'วันที่', 'date'], ['affairsTeacher', 'ครูฝ่ายกิจการนักเรียน', 'select'],
     ['outTime', 'เวลาออก', 'time'], ['returnTime', 'เวลากลับ', 'time'],
+    ['advisorOpinion', 'ความเห็นครูที่ปรึกษา', 'opinion'], ['affairsOpinion', 'ความเห็นครูฝ่ายกิจการ', 'opinion'],
     ['reason', 'ธุระ', 'textarea'], ['destination', 'สถานที่ติดต่อ', 'text'],
     ['guardianName', 'ชื่อผู้ปกครอง (ถ้ามารับ)', 'text']
   ];
@@ -165,6 +183,11 @@ function renderLeaveDrafts() {
       if (kind === 'select') {
         input = document.createElement('select'); input.add(new Option('เลือกครู', ''));
         (leaveSettings.affairsTeachers || []).forEach(name => input.add(new Option(name, name)));
+      } else if (kind === 'opinion') {
+        input = document.createElement('select');
+        input.add(new Option('เลือกผลพิจารณา', ''));
+        input.add(new Option('เห็นควรอนุญาต', 'อนุญาต'));
+        input.add(new Option('เห็นควรไม่อนุญาต', 'ไม่อนุญาต'));
       } else if (kind === 'textarea') {
         input = document.createElement('textarea'); input.rows = 2; input.maxLength = 500;
       } else {
@@ -173,16 +196,23 @@ function renderLeaveDrafts() {
         if (field === 'guardianName') input.maxLength = 120;
       }
       input.value = draft[field] || '';
+      if (field === 'returnTime') input.disabled = !!draft.noReturn;
       input.addEventListener('input', () => updateLeaveDraft(index, field, input));
       label.append(input); grid.append(label);
     });
+    const noReturn = document.createElement('label');
+    noReturn.style.cssText = 'display:flex;align-items:center;gap:7px;margin-top:12px';
+    const noReturnBox = document.createElement('input'); noReturnBox.type = 'checkbox'; noReturnBox.checked = !!draft.noReturn;
+    noReturnBox.style.width = 'auto';
+    noReturnBox.addEventListener('change', () => updateLeaveDraft(index, 'noReturn', noReturnBox));
+    noReturn.append(noReturnBox, document.createTextNode('ไม่กลับเข้ามาในโรงเรียนในวันนั้น'));
     const pickup = document.createElement('label');
     pickup.style.cssText = 'display:flex;align-items:center;gap:7px;margin-top:12px';
     const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = !!draft.parentPickup;
     checkbox.style.width = 'auto';
     checkbox.addEventListener('change', () => updateLeaveDraft(index, 'parentPickup', checkbox));
     pickup.append(checkbox, document.createTextNode('ผู้ปกครองมารับนักเรียนด้วยตนเอง'));
-    card.append(grid, pickup); holder.append(card);
+    card.append(grid, noReturn, pickup); holder.append(card);
   });
 }
 
@@ -191,7 +221,7 @@ async function createLeaveRequests() {
   syncLeaveDrafts();
   const requests = [...leaveDrafts.values()].sort(leaveOrder);
   if (!requests.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
-  const missing = requests.find(d => !d.date || !d.outTime || !d.returnTime || !d.reason.trim() || !d.destination.trim() || !d.affairsTeacher);
+  const missing = requests.find(d => !d.date || !d.outTime || (!d.noReturn && !d.returnTime) || !d.reason.trim() || !d.destination.trim() || !d.affairsTeacher || !d.advisorOpinion || !d.affairsOpinion);
   if (missing) return toast(`กรอกข้อมูลของ ${leaveName(missing.student)} ให้ครบ`, 'err');
   const button = document.getElementById('leaveCreateBtn'); button.disabled = true;
   try {
@@ -269,21 +299,25 @@ function thaiLeaveDate(value) {
 
 function leavePrintCopy(request) {
   const s = request.student;
-  const choice = status => request.status === status ? '☑' : '☐';
+  const choice = (value, status) => value === status ? '☑' : '☐';
+  const returnText = request.noReturn
+    ? 'และไม่กลับเข้ามาในโรงเรียนในวันนั้น'
+    : `และกลับเข้ามาในโรงเรียนเวลา <b>${leaveEscape(request.returnTime)}</b> น.`;
   return `<section class="copy">
     <h2>แบบบันทึกขออนุญาตออกนอกบริเวณโรงเรียน</h2>
+    <p class="school">${LEAVE_SCHOOL}</p>
     <p class="date">วันที่ ${thaiLeaveDate(request.date)}</p>
-    <p>เรียน รองผู้อำนวยการโรงเรียน ${leaveEscape(request.deputyName)}</p>
+    <p>เรียน รองผู้อำนวยการ${LEAVE_SCHOOL}</p>
     <p class="indent">ข้าพเจ้า <b>${leaveEscape(leaveName(s))}</b> นักเรียนชั้น <b>${leaveEscape(s.cls)}${s.room ? '/' + leaveEscape(s.room) : ''}</b> เลขที่ <b>${leaveEscape(s.number || '–')}</b></p>
-    <p>มีความประสงค์ขออนุญาตออกนอกบริเวณโรงเรียน ตั้งแต่เวลา <b>${leaveEscape(request.outTime)}</b> น. และกลับเข้ามาในโรงเรียนเวลา <b>${leaveEscape(request.returnTime)}</b> น.</p>
+    <p>มีความประสงค์ขออนุญาตออกนอกบริเวณโรงเรียน ตั้งแต่เวลา <b>${leaveEscape(request.outTime)}</b> น. ${returnText}</p>
     <p>ทั้งนี้เพื่อไปทำธุระเรื่อง <b>${leaveEscape(request.reason)}</b></p>
     <p>สถานที่ไปติดต่อ <b>${leaveEscape(request.destination)}</b></p>
     <p class="sign">ลงชื่อ ........................................ นักเรียนผู้ขออนุญาต<br>(${leaveEscape(leaveName(s))})</p>
     <div class="boxes">
-      <div>พิจารณาเห็นควรว่า ☐ อนุญาต ☐ ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.homeroomTeacher || '........................................')})<br>ครูที่ปรึกษา/ครูผู้สอน</div>
-      <div>พิจารณาเห็นควรว่า ☐ อนุญาต ☐ ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.affairsTeacher)})<br>ครูฝ่ายกิจการนักเรียน</div>
+      <div>พิจารณาเห็นควรว่า ${choice(request.advisorOpinion, 'อนุญาต')} อนุญาต ${choice(request.advisorOpinion, 'ไม่อนุญาต')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.homeroomTeacher || '........................................')})<br>ครูที่ปรึกษา/ครูผู้สอน</div>
+      <div>พิจารณาเห็นควรว่า ${choice(request.affairsOpinion, 'อนุญาต')} อนุญาต ${choice(request.affairsOpinion, 'ไม่อนุญาต')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.affairsTeacher)})<br>ครูฝ่ายกิจการนักเรียน</div>
       <div>ลงชื่อ ........................................<br>(${leaveEscape(request.guardianName || '........................................')})<br>ผู้ปกครอง${request.parentPickup ? ' (มารับด้วยตนเอง)' : ''}</div>
-      <div>ผลการพิจารณา ${choice('อนุมัติ')} อนุญาต ${choice('ไม่อนุมัติ')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.deputyName)})<br>รองผู้อำนวยการฝ่ายบุคคลและกิจการนักเรียน${request.decidedAt ? `<br><small>บันทึกผลในระบบ ${leaveEscape(request.decidedAt)}</small>` : ''}</div>
+      <div>ผลการพิจารณา ${choice(request.status, 'อนุมัติ')} อนุญาต ${choice(request.status, 'ไม่อนุมัติ')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.deputyName)})<br>รองผู้อำนวยการฝ่ายบุคคลและกิจการนักเรียน${request.decidedAt ? `<br><small>บันทึกผลในระบบ ${leaveEscape(request.decidedAt)}</small>` : ''}</div>
     </div>
     ${request.decisionNote ? `<p class="note">หมายเหตุการพิจารณา: ${leaveEscape(request.decisionNote)}</p>` : ''}
   </section>`;
@@ -295,16 +329,16 @@ function printLeaveGroup(token) {
   const popup = window.open('', '_blank');
   if (!popup) return toast('เบราว์เซอร์ปิดกั้นหน้าพิมพ์ กรุณาอนุญาตหน้าต่างใหม่', 'err');
   const pages = requests.map(request => `<article class="page">${leavePrintCopy(request)}${leavePrintCopy(request)}</article>`).join('');
-  popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><style>
-    @page{size:A4;margin:10mm}*{box-sizing:border-box}body{font-family:Tahoma,"Noto Sans Thai",sans-serif;color:#111;margin:0;font-size:11pt;line-height:1.35}
+  popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap"><style>
+    @page{size:A4;margin:10mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:11pt;line-height:1.35}
     .page{break-after:page}.page:last-child{break-after:auto}.copy{height:138mm;overflow:hidden;padding:3mm 2mm;border-bottom:1px dashed #aaa}.copy:last-child{border-bottom:0}
-    h2{text-align:center;font-size:14pt;margin:0 0 3mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.5mm 0}.indent{text-indent:10mm}.sign{text-align:right;margin:2mm 4mm 2mm 0}
+    h2{text-align:center;font-size:14pt;margin:0}.school{text-align:center;font-size:10pt;margin:0 0 2mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.5mm 0}.indent{text-indent:10mm}.sign{text-align:right;margin:2mm 4mm 2mm 0}
     .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:9.5pt}.boxes>div{min-height:26mm;padding:2mm 3mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.note{font-size:9pt}small{font-size:8pt}
     @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:10mm;box-shadow:0 2px 12px #aaa}}
   </style></head><body>${pages}</body></html>`);
   popup.document.close();
   popup.focus();
-  setTimeout(() => popup.print(), 500);
+  popup.document.fonts.ready.then(() => popup.print(), () => popup.print());
 }
 
 async function unlockLeaveApproval(event) {
@@ -335,9 +369,10 @@ function renderLeaveApproval() {
     const card = document.createElement('div');
     card.className = 'approval-request' + (request.status === 'อนุมัติ' ? ' approved' : request.status === 'ไม่อนุมัติ' ? ' denied' : '');
     card.innerHTML = `<h3>${index + 1}. ${leaveEscape(leaveName(request.student))} · ${leaveEscape(request.student.cls)}${request.student.room ? '/' + leaveEscape(request.student.room) : ''}</h3>
-      <p>วันที่ ${thaiLeaveDate(request.date)} · ${leaveEscape(request.outTime)}–${leaveEscape(request.returnTime)} น.</p>
+      <p>วันที่ ${thaiLeaveDate(request.date)} · ออก ${leaveEscape(request.outTime)} น. · ${request.noReturn ? 'ไม่กลับเข้ามาในวันนั้น' : `กลับ ${leaveEscape(request.returnTime)} น.`}</p>
       <p>ธุระ: ${leaveEscape(request.reason)}<br>สถานที่: ${leaveEscape(request.destination)}</p>
       <p>ครูฝ่ายกิจการ: ${leaveEscape(request.affairsTeacher)} · ครูประจำชั้น: ${leaveEscape(request.homeroomTeacher || 'ยังไม่ได้ตั้งค่า')}</p>
+      <p>ครูที่ปรึกษาเห็นควร: ${leaveEscape(request.advisorOpinion || 'ยังไม่ระบุ')} · ครูฝ่ายกิจการเห็นควร: ${leaveEscape(request.affairsOpinion || 'ยังไม่ระบุ')}</p>
       <strong>สถานะ: ${leaveEscape(request.status)}</strong>`;
     if (request.status === 'รอพิจารณา') {
       const note = document.createElement('textarea'); note.rows = 2; note.maxLength = 300;
