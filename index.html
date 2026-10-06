@@ -2,6 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>ระบบใบรายชื่อนักเรียน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -299,7 +300,31 @@ tbody tr.female{background:#FFFAFC}
 .edit-selected-row .btn{flex-shrink:0}
 .pick-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .pick-muted{color:var(--gray-500);font-size:12px}
+.pick-tabs{display:flex;gap:6px;padding:8px 14px;border-bottom:1px solid var(--gray-200);overflow:auto;flex-shrink:0}
+.pick-tabs .btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pick-body.pick-tab-panel{display:none}
+.pick-body.pick-tab-panel.active{display:grid}
+.pick-tab-panel{display:none;min-height:0;flex:1}
+.pick-tab-panel.active{display:block}
+.leave-scroll{height:100%;overflow:auto;padding:16px;background:var(--gray-50)}
+.leave-card{background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:14px;margin:12px 0}
+.leave-card h3{font-size:15px;margin:0 0 10px}
+.leave-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.leave-grid label,.leave-card label{display:block;font-size:12px;color:var(--gray-700)}
+.leave-grid input,.leave-grid select,.leave-grid textarea,.leave-card input,.leave-card select,.leave-card textarea,.leave-settings input,.leave-settings textarea,.approval-panel input,.approval-panel textarea{display:block;width:100%;padding:8px 10px;margin-top:4px;border:1px solid var(--gray-300);border-radius:7px;font:inherit;background:#fff}
+.leave-grid .wide{grid-column:1/-1}
+.leave-settings{max-width:760px}
+.leave-settings label{display:block;margin:10px 0;font-size:13px}
+.leave-history-item{border-bottom:1px solid var(--gray-200);padding:10px 0;font-size:13px}
+.approval-overlay{position:fixed;inset:0;z-index:800;background:#f4f7fb;display:none;justify-content:center;padding:12px}
+.approval-overlay.show{display:flex}
+.approval-panel{background:#fff;width:min(100%,900px);height:100%;overflow:auto;border-radius:12px;padding:20px;box-shadow:var(--shadow-md)}
+.approval-panel h2{font-size:20px;margin:0 0 8px}
+.approval-request{border:1px solid var(--gray-200);border-radius:9px;padding:14px;margin:12px 0}
+.approval-request.approved{border-color:var(--green)}
+.approval-request.denied{border-color:var(--red)}
 @media(max-width:700px){.pick-body{display:flex;flex-direction:column}.pick-list{min-height:45%;flex:1}.pick-side{border-left:none;border-top:1px solid var(--gray-200);min-height:45%;flex:1}}
+@media(max-width:700px){.pick-body.pick-tab-panel.active{display:flex;flex-direction:column}.leave-grid{grid-template-columns:1fr}}
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--gray-900);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:var(--shadow-md);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -578,7 +603,8 @@ tbody tr.female{background:#FFFAFC}
 <div class="pick-overlay" id="pickOverlay" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
   <div class="pick-modal">
     <div class="pick-head"><h2 id="pickTitle">เลือกนักเรียนหลายชั้น</h2><button class="btn" onclick="closePicker()">ปิด</button></div>
-    <div class="pick-body">
+    <div class="pick-tabs" role="tablist"><button class="btn active" id="recordsTabButton" onclick="showPickerTab('records')">เลือกนักเรียน</button><button class="btn" id="leaveTabButton" onclick="showPickerTab('leave')">ใบขอออกนอกบริเวณ</button><button class="btn" id="settingsTabButton" onclick="showPickerTab('settings')">ตั้งค่าฟอร์ม</button></div>
+    <div class="pick-body pick-tab-panel active" id="recordsTab">
       <div class="pick-list">
         <div class="pick-filters"><select id="pickClass" onchange="renderPickerStudents()" aria-label="กรองตามชั้น"><option value="">ทุกชั้น</option></select><input id="pickSearch" type="search" oninput="renderPickerStudents()" placeholder="ค้นหาชื่อหรือรหัสนักเรียน" aria-label="ค้นหานักเรียน"></div>
         <div class="pick-muted" id="pickResultCount"></div>
@@ -596,6 +622,38 @@ tbody tr.female{background:#FFFAFC}
         <div class="pick-actions"><button class="btn primary" id="recordSaveBtn" onclick="savePickedRecord()">บันทึกรายการ</button><button class="btn" onclick="loadRecords()">ดูประวัติ</button></div>
         <h3>ประวัติรายการ</h3><input id="recordHistorySearch" type="search" oninput="renderRecordHistory()" placeholder="ค้นหาชื่อนักเรียนหรือรายการ" aria-label="ค้นหาประวัติ"><div class="pick-history" id="recordHistory"><span class="pick-muted">กดดูประวัติเพื่อแสดงรายการ</span></div>
       </div>
+    </div>
+    <div class="pick-tab-panel" id="leaveTab">
+      <div class="leave-scroll">
+        <h3>ใบขออนุญาตออกนอกบริเวณโรงเรียน</h3>
+        <p class="pick-muted">เลือกนักเรียนในแท็บ “เลือกนักเรียน” ก่อน แล้วกรอกข้อมูลร่วมและปรับรายละเอียดรายคนได้</p>
+        <div class="leave-card">
+          <strong>ข้อมูลที่ใช้กับทุกคน</strong>
+          <div class="leave-grid">
+            <label>วันที่<input id="leaveDefaultDate" type="date"></label>
+            <label>ครูฝ่ายกิจการนักเรียน<select id="leaveDefaultAffairs"><option value="">เลือกครูผู้กรอก</option></select></label>
+            <label>เวลาออก<input id="leaveDefaultOut" type="time"></label>
+            <label>เวลากลับ<input id="leaveDefaultReturn" type="time"></label>
+            <label class="wide">ธุระ<textarea id="leaveDefaultReason" rows="2" maxlength="500" placeholder="เช่น ไปติดต่อหน่วยงานราชการ"></textarea></label>
+            <label class="wide">สถานที่ติดต่อ<input id="leaveDefaultDestination" maxlength="300" placeholder="สถานที่ที่จะไป"></label>
+          </div>
+          <div class="pick-actions"><button class="btn" onclick="applyLeaveDefaults()">นำข้อมูลร่วมไปใส่ทุกคน</button></div>
+        </div>
+        <div id="leaveSelectedCount" class="pick-muted"></div>
+        <div id="leaveDrafts"></div>
+        <div class="pick-actions"><button class="btn primary" id="leaveCreateBtn" onclick="createLeaveRequests()">บันทึกใบขออนุญาต</button></div>
+        <div class="leave-card"><strong>ใบขออนุญาตที่บันทึกแล้ว</strong><div class="pick-actions"><button class="btn" onclick="loadLeaveHistory()">โหลดรายการ</button></div><div id="leaveHistory" class="pick-muted">ยังไม่ได้โหลดรายการ</div></div>
+      </div>
+    </div>
+    <div class="pick-tab-panel" id="settingsTab">
+      <div class="leave-scroll"><div class="leave-settings">
+        <h3>ตั้งค่าชื่อผู้ลงนามในใบขออนุญาต</h3>
+        <p class="pick-muted">ข้อมูลนี้แสดงเฉพาะหลังกรอกรหัสเลือกนักเรียน และใช้เป็นค่าเริ่มต้นเมื่อสร้างใบขอ</p>
+        <label>รองผู้อำนวยการ<input id="leaveDeputyName" type="text" maxlength="120" placeholder="ชื่อรองผู้อำนวยการ"></label>
+        <label>ครูฝ่ายกิจการนักเรียน (1 บรรทัดต่อ 1 คน)<textarea id="leaveAffairsNames" rows="4" placeholder="ชื่อครูคนที่ 1&#10;ชื่อครูคนที่ 2"></textarea></label>
+        <h4>ครูประจำชั้น</h4><div id="leaveHomeroomSettings" class="leave-grid"></div>
+        <div class="pick-actions"><button class="btn primary" id="leaveSettingsSaveBtn" onclick="saveLeaveFormSettings()">บันทึกการตั้งค่า</button></div>
+      </div></div>
     </div>
   </div>
 </div>
@@ -787,8 +845,27 @@ tbody tr.female{background:#FFFAFC}
   </div>
 </div>
 
+<!-- หน้าพิจารณาใบขอจากลิงก์ที่ส่งให้รองผู้อำนวยการ -->
+<div class="approval-overlay" id="approvalOverlay" role="dialog" aria-modal="true" aria-labelledby="approvalTitle">
+  <div class="approval-panel">
+    <div class="pick-head"><h2 id="approvalTitle">พิจารณาใบขออนุญาตออกนอกบริเวณ</h2><button class="btn" onclick="location.href=location.pathname">กลับหน้าหลัก</button></div>
+    <form id="approvalUnlockForm" onsubmit="unlockLeaveApproval(event)" class="leave-card">
+      <p>กรอกรหัสอนุมัติของรองผู้อำนวยการเพื่อดูและพิจารณาคำขอ</p>
+      <label>รหัสอนุมัติ<input id="approvalPinInput" type="password" autocomplete="off" required></label>
+      <div id="approvalError" role="alert" style="color:var(--red,#dc2626);min-height:20px;margin:8px 0"></div>
+      <button class="btn primary" id="approvalUnlockBtn" type="submit">เปิดคำขอ</button>
+    </form>
+    <div id="approvalContent" hidden>
+      <p id="approvalSummary" class="pick-muted"></p>
+      <div class="pick-actions"><button class="btn primary" onclick="decideAllLeaveRequests('อนุมัติ')">อนุมัติที่รอทั้งหมด</button><button class="btn" onclick="decideAllLeaveRequests('ไม่อนุมัติ')">ไม่อนุมัติที่รอทั้งหมด</button></div>
+      <div id="approvalRequests"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20261006-7"></script>
+<script src="app.js?v=20261006-8"></script>
+<script src="leave.js?v=20261006-1"></script>
 </body>
 </html>

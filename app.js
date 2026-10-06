@@ -1060,6 +1060,7 @@ function showPicker() {
     .forEach(cls => classSelect.add(new Option(cls, cls)));
   document.getElementById('recordDate').value = new Date().toLocaleDateString('sv-SE');
   document.getElementById('pickOverlay').classList.add('show');
+  if (typeof showPickerTab === 'function') showPickerTab('records');
   renderPickerStudents();
   renderPicked();
 }
@@ -1069,6 +1070,9 @@ function closePicker() {
   document.getElementById('pickOverlay').classList.remove('show');
   pickerPin = '';
   pickedStudents.clear();
+  if (typeof leaveDrafts !== 'undefined') leaveDrafts.clear();
+  if (typeof leaveRequests !== 'undefined') leaveRequests = [];
+  if (typeof leaveSettingsLoaded !== 'undefined') leaveSettingsLoaded = false;
   document.getElementById('recordHistorySearch').value = '';
   loadedRecords = [];
   document.getElementById('recordHistory').textContent = 'กดดูประวัติเพื่อแสดงรายการ';
