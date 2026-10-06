@@ -297,6 +297,19 @@ function thaiLeaveDate(value) {
   return `${day} ${['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][month - 1] || ''} ${year + 543}`;
 }
 
+function thaiLeaveDecisionTime(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return leaveEscape(value);
+  const options = { timeZone: 'Asia/Bangkok' };
+  const day = new Intl.DateTimeFormat('th-TH-u-ca-buddhist-nu-latn', {
+    ...options, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  }).format(date);
+  const time = new Intl.DateTimeFormat('th-TH-u-nu-latn', {
+    ...options, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).format(date);
+  return `${day} เวลา ${time} น.`;
+}
+
 function leavePrintCopy(request) {
   const s = request.student;
   const choice = (value, status) => value === status ? '☑' : '☐';
@@ -317,7 +330,7 @@ function leavePrintCopy(request) {
       <div>พิจารณาเห็นควรว่า ${choice(request.advisorOpinion, 'อนุญาต')} อนุญาต ${choice(request.advisorOpinion, 'ไม่อนุญาต')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.homeroomTeacher || '........................................')})<br>ครูที่ปรึกษา/ครูผู้สอน</div>
       <div>พิจารณาเห็นควรว่า ${choice(request.affairsOpinion, 'อนุญาต')} อนุญาต ${choice(request.affairsOpinion, 'ไม่อนุญาต')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.affairsTeacher)})<br>ครูฝ่ายกิจการนักเรียน</div>
       <div>ลงชื่อ ........................................<br>(${leaveEscape(request.guardianName || '........................................')})<br>ผู้ปกครอง${request.parentPickup ? ' (มารับด้วยตนเอง)' : ''}</div>
-      <div>ผลการพิจารณา ${choice(request.status, 'อนุมัติ')} อนุญาต ${choice(request.status, 'ไม่อนุมัติ')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.deputyName)})<br>รองผู้อำนวยการฝ่ายบุคคลและกิจการนักเรียน${request.decidedAt ? `<br><small>บันทึกผลในระบบ ${leaveEscape(request.decidedAt)}</small>` : ''}</div>
+      <div>ผลการพิจารณา ${choice(request.status, 'อนุมัติ')} อนุญาต ${choice(request.status, 'ไม่อนุมัติ')} ไม่อนุญาต<br>ลงชื่อ ........................................<br>(${leaveEscape(request.deputyName)})<br>รองผู้อำนวยการฝ่ายบุคคลและกิจการนักเรียน${request.decidedAt ? `<br><small>บันทึกผลในระบบ ${thaiLeaveDecisionTime(request.decidedAt)}</small>` : ''}</div>
     </div>
     ${request.decisionNote ? `<p class="note">หมายเหตุการพิจารณา: ${leaveEscape(request.decisionNote)}</p>` : ''}
   </section>`;
@@ -332,7 +345,7 @@ function printLeaveGroup(token) {
   popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap"><style>
     @page{size:A4;margin:10mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:11pt;line-height:1.35}
     .page{break-after:page}.page:last-child{break-after:auto}.copy{height:138mm;overflow:hidden;padding:3mm 2mm;border-bottom:1px dashed #aaa}.copy:last-child{border-bottom:0}
-    h2{text-align:center;font-size:14pt;margin:0}.school{text-align:center;font-size:10pt;margin:0 0 2mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.5mm 0}.indent{text-indent:10mm}.sign{text-align:right;margin:2mm 4mm 2mm 0}
+    h2{text-align:center;font-size:14pt;margin:0}.school{text-align:center;font-size:10pt;margin:0 0 2mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.5mm 0}.indent{text-indent:10mm}.sign{width:max-content;max-width:100%;text-align:center;margin:2mm 4mm 2mm auto}
     .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:9.5pt}.boxes>div{min-height:26mm;padding:2mm 3mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.note{font-size:9pt}small{font-size:8pt}
     @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:10mm;box-shadow:0 2px 12px #aaa}}
   </style></head><body>${pages}</body></html>`);
