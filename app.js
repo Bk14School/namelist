@@ -1,10 +1,69 @@
-const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbx7lwjrqXeo8IAcra6AfZXzndYaReqi94PkM1OjHokYs_1mde8XzmZB9xCIQQEhdXSC/exec';
-let GAS_URL   = localStorage.getItem('gasUrl') || GAS_URL_DEFAULT;
+const GAS_URL_OLD = 'https://script.google.com/macros/s/AKfycbx7lwjrqXeo8IAcra6AfZXzndYaReqi94PkM1OjHokYs_1mde8XzmZB9xCIQQEhdXSC/exec';
+const GAS_URL_DEFAULT = 'https://script.google.com/macros/s/AKfycbxP_gO-U_sdFIJzIz5LTXtGOgnNkcELdPwfVzxiayNWNfypk3c9p8bNWDMDBhjCp42J/exec';
+let GAS_URL = localStorage.getItem('gasUrl') || GAS_URL_DEFAULT;
+if (GAS_URL === GAS_URL_OLD) { GAS_URL = GAS_URL_DEFAULT; localStorage.setItem('gasUrl', GAS_URL); }
 let allData      = [], curClass = '', curView = 1;
 let adminPin     = '9999', schoolName = '', pinVal = '';
 let extraStudents = []; // นักเรียนจากชีท "เพิ่มเติม" พร้อม rowIndex
 const isMobile = () => window.innerWidth < 768;
 const classOrder = ['อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
+
+let bridgeFrame = null, bridgeReady = null, bridgeSource = null, bridgeOrigin = '';
+let bridgeNonce = '', bridgeNextId = 0;
+const bridgePending = new Map();
+
+function resetBridge() {
+  if (bridgeFrame) bridgeFrame.remove();
+  bridgeFrame = null; bridgeReady = null; bridgeSource = null; bridgeOrigin = '';
+  bridgePending.forEach(({ reject }) => reject(new Error('การเชื่อมต่อถูกเปลี่ยน')));
+  bridgePending.clear();
+}
+
+function startBridge() {
+  if (bridgeReady) return bridgeReady;
+  bridgeNonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  bridgeReady = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { resetBridge(); reject(new Error('บริการไม่ตอบสนอง')); }, 20000);
+    const onMessage = event => {
+      if (!event.data || event.data.namelistBridge !== true || event.data.nonce !== bridgeNonce) return;
+      const host = new URL(event.origin).hostname;
+      if (host !== 'script.google.com' && host !== 'script.googleusercontent.com' && !host.endsWith('.googleusercontent.com')) return;
+      if (event.data.kind === 'ready') {
+        bridgeSource = event.source;
+        bridgeOrigin = event.origin;
+        clearTimeout(timer);
+        resolve();
+      } else if (event.data.kind === 'response' && event.source === bridgeSource) {
+        const pending = bridgePending.get(event.data.id);
+        if (!pending) return;
+        bridgePending.delete(event.data.id);
+        clearTimeout(pending.timer);
+        if (event.data.error) pending.reject(new Error(event.data.error));
+        else pending.resolve(event.data.result);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    const separator = GAS_URL.includes('?') ? '&' : '?';
+    bridgeFrame = document.createElement('iframe');
+    bridgeFrame.style.display = 'none';
+    bridgeFrame.src = `${GAS_URL}${separator}action=bridge&nonce=${encodeURIComponent(bridgeNonce)}`;
+    document.body.appendChild(bridgeFrame);
+  });
+  return bridgeReady;
+}
+
+async function bridgeRequest(payload) {
+  await startBridge();
+  return new Promise((resolve, reject) => {
+    const id = ++bridgeNextId;
+    const timer = setTimeout(() => {
+      bridgePending.delete(id);
+      reject(new Error('บริการตอบกลับช้าเกินไป'));
+    }, 60000);
+    bridgePending.set(id, { resolve, reject, timer });
+    bridgeSource.postMessage({ namelistBridge: true, kind: 'request', nonce: bridgeNonce, id, payload }, bridgeOrigin);
+  });
+}
 
 window.onload = () => {
   // รอ XLSX library โหลดเสร็จก่อน (fallback CDN อาจใช้เวลา)
@@ -31,6 +90,8 @@ async function initApp() {
 
 // ── Load all ──────────────────────────────────────────────
 async function fetchAllData() {
+  try { return await bridgeRequest({ action: 'getAll' }); }
+  catch (bridgeError) { console.warn('Bridge unavailable:', bridgeError); }
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -676,8 +737,7 @@ async function pushToSheets(data) {
   btn.innerHTML='<span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0"></span> กำลังบันทึก...';
   st.textContent=`อ่าน ${data.length} รายการ...`; msg.innerHTML='';
   try {
-    const res  = await fetch(GAS_URL, {method:'POST', body:JSON.stringify({action:'saveStudents', students:data})});
-    const json = await res.json();
+    const json = await bridgeRequest({action:'saveStudents', students:data});
     if (json.success) { msg.className='sync-msg ok'; msg.textContent='✓ '+json.message; toast(json.message,'ok'); setStatus('ok','เชื่อมต่อแล้ว'); }
     else              { msg.className='sync-msg err'; msg.textContent='เกิดข้อผิดพลาด: '+json.message; }
   } catch(e) { msg.className='sync-msg err'; msg.textContent='เชื่อมต่อไม่ได้: '+e.message; }
@@ -691,6 +751,7 @@ function saveGasUrl() {
   const v = document.getElementById('gasInput').value.trim();
   if (!v) { toast('กรุณากรอก URL','err'); return; }
   GAS_URL = v; localStorage.setItem('gasUrl', v);
+  resetBridge();
   toast('บันทึก URL แล้ว — กำลังโหลดใหม่','ok');
   setTimeout(loadAll, 600);
 }
@@ -739,8 +800,7 @@ async function deleteExtra(idx, rowIndex) {
   if (!confirm('ลบ "' + name.trim() + '" ออกจากชีทเพิ่มเติม?\nนักเรียนคนนี้จะหายจากรายชื่อบนเว็บทันที')) return;
 
   try {
-    var res  = await fetch(GAS_URL, {method:'POST', body:JSON.stringify({action:'deleteExtraStudent', rowIndex:rowIndex})});
-    var json = await res.json();
+    var json = await bridgeRequest({action:'deleteExtraStudent', rowIndex:rowIndex});
     if (json.success) {
       toast(json.message, 'ok');
       // ลบออกจาก extraStudents และ allData
@@ -825,8 +885,7 @@ async function saveAddStudent() {
   };
 
   try {
-    var res  = await fetch(GAS_URL, {method:'POST', body:JSON.stringify({action:'addExtraStudent', student:student})});
-    var json = await res.json();
+    var json = await bridgeRequest({action:'addExtraStudent', student:student});
     if (json.success) {
       msg.textContent = '✓ บันทึกสำเร็จ';
       msg.style.color = 'var(--green)';
@@ -1068,8 +1127,7 @@ function updateRecordFields() {
 }
 
 async function recordRequest(payload) {
-  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
-  return res.json();
+  return bridgeRequest(payload);
 }
 
 async function savePickedRecord() {
