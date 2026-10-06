@@ -277,6 +277,26 @@ tbody tr.female{background:#FFFAFC}
 .copy-opt-chk,.copy-opt-sep{display:flex;align-items:center;gap:6px;font-size:13px;font-family:'Sarabun',sans-serif;color:var(--gray-700);padding:5px 8px;border:1px solid var(--gray-200);border-radius:6px;cursor:pointer;transition:background .12s;background:#fff}
 .copy-opt-chk:hover,.copy-opt-sep:hover{background:var(--gray-50)}
 .copy-opt-chk input,.copy-opt-sep input{accent-color:var(--blue);cursor:pointer}
+/* รายการที่เลือก */
+.pick-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:450;display:none;align-items:center;justify-content:center;padding:12px}
+.pick-overlay.show{display:flex}
+.pick-modal{background:#fff;width:min(100%,1000px);height:min(92vh,820px);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+.pick-head{padding:14px 18px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pick-head h2{font-size:18px}
+.pick-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);min-height:0;flex:1}
+.pick-list,.pick-side{padding:14px;overflow:auto;min-height:0}
+.pick-side{border-left:1px solid var(--gray-200);background:var(--gray-50)}
+.pick-filters{display:flex;gap:8px;margin-bottom:10px}
+.pick-filters input,.pick-filters select,.pick-side input,.pick-side select,.pick-side textarea{width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:7px;font:inherit;background:#fff}
+.pick-row{display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid var(--gray-100);font-size:13px;cursor:pointer}
+.pick-row input{accent-color:var(--blue);width:18px;height:18px;flex-shrink:0}
+.pick-row small{margin-left:auto;color:var(--gray-500);white-space:nowrap}
+.pick-side label{display:block;font-size:12px;color:var(--gray-700);margin:10px 0 4px}
+.pick-side h3{font-size:14px;margin:14px 0 6px}
+.pick-selected,.pick-history{font-size:13px;line-height:1.7;max-height:125px;overflow:auto;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px}
+.pick-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pick-muted{color:var(--gray-500);font-size:12px}
+@media(max-width:700px){.pick-body{display:flex;flex-direction:column}.pick-list{min-height:45%;flex:1}.pick-side{border-left:none;border-top:1px solid var(--gray-200);min-height:45%;flex:1}}
 /* ── Toast ── */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--gray-900);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;box-shadow:var(--shadow-md);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -421,6 +441,7 @@ tbody tr.female{background:#FFFAFC}
             <button class="vbtn" data-v="4">แบบ 4 — ช่องคะแนน</button>
           </div>
           <div class="tright">
+            <button class="btn primary" onclick="openPicker()">เลือกนักเรียน</button>
             <button class="btn" onclick="copyList()" title="คัดลอกรายชื่อ">
               <svg class="btn-ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
               คัดลอก
@@ -535,6 +556,32 @@ tbody tr.female{background:#FFFAFC}
         <div class="fg-hint">Apps Script → Deploy → New deployment → Web app → Execute as: Me → Anyone</div>
       </div>
       <button class="btn primary" onclick="saveGasUrl()">บันทึก URL</button>
+    </div>
+  </div>
+</div>
+
+<!-- เลือกนักเรียนหลายชั้นและบันทึกรายการ -->
+<div class="pick-overlay" id="pickOverlay" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+  <div class="pick-modal">
+    <div class="pick-head"><h2 id="pickTitle">เลือกนักเรียนหลายชั้น</h2><button class="btn" onclick="closePicker()">ปิด</button></div>
+    <div class="pick-body">
+      <div class="pick-list">
+        <div class="pick-filters"><select id="pickClass" onchange="renderPickerStudents()" aria-label="กรองตามชั้น"><option value="">ทุกชั้น</option></select><input id="pickSearch" type="search" oninput="renderPickerStudents()" placeholder="ค้นหาชื่อหรือรหัสนักเรียน" aria-label="ค้นหานักเรียน"></div>
+        <div class="pick-muted" id="pickResultCount"></div>
+        <div id="pickStudents"></div>
+      </div>
+      <div class="pick-side">
+        <strong id="pickCount">เลือกแล้ว 0 คน</strong>
+        <div class="pick-selected" id="pickSelected"></div>
+        <div class="pick-actions"><button class="btn" onclick="clearPicker()">ล้างที่เลือก</button><button class="btn" onclick="copyPicked()">คัดลอกรายชื่อ</button><button class="btn" onclick="exportPicked()">Excel</button></div>
+        <label for="recordType">ประเภท</label><select id="recordType" onchange="updateRecordFields()"><option value="activity">กิจกรรม</option><option value="late">มาสาย</option><option value="conduct">ผิดระเบียบ</option></select>
+        <label for="recordDate">วันที่</label><input id="recordDate" type="date">
+        <div id="recordNameWrap"><label for="recordName">ชื่อกิจกรรม</label><input id="recordName" type="text" maxlength="120" placeholder="เช่น กีฬาสี"></div>
+        <label for="recordNote">หมายเหตุ</label><textarea id="recordNote" rows="2" maxlength="500" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"></textarea>
+        <label for="recordPin">รหัสบันทึกรายการ</label><input id="recordPin" type="password" autocomplete="off" placeholder="รหัสที่ตั้งใน Apps Script">
+        <div class="pick-actions"><button class="btn primary" id="recordSaveBtn" onclick="savePickedRecord()">บันทึกรายการ</button><button class="btn" onclick="loadRecords()">ดูประวัติ</button></div>
+        <h3>ประวัติรายการ</h3><input id="recordHistorySearch" type="search" oninput="renderRecordHistory()" placeholder="ค้นหาชื่อนักเรียนหรือรายการ" aria-label="ค้นหาประวัติ"><div class="pick-history" id="recordHistory"><span class="pick-muted">กรอกรหัสแล้วกดดูประวัติ</span></div>
+      </div>
     </div>
   </div>
 </div>
