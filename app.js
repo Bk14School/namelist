@@ -1019,6 +1019,8 @@ function toast(msg, type='') {
 const pickedStudents = new Set();
 let loadedRecords = [];
 let pickerPin = '';
+let editingRecordId = '';
+let editingStudents = [];
 
 function openPicker() {
   document.getElementById('pickerPinInput').value = '';
@@ -1063,6 +1065,7 @@ function showPicker() {
 }
 
 function closePicker() {
+  closeRecordEditor();
   document.getElementById('pickOverlay').classList.remove('show');
   pickerPin = '';
   pickedStudents.clear();
@@ -1161,20 +1164,25 @@ function exportPicked() {
 }
 
 function printPicked() {
-  const rows = selectedTable();
-  if (!rows.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
+  printStudentList(pickedRows(), 'รายชื่อนักเรียนที่เลือก', '');
+}
+
+function printStudentList(students, title, details) {
+  if (!students.length) return toast('ไม่มีรายชื่อนักเรียนให้พิมพ์', 'err');
   const escapeHtml = value => String(value).replace(/[&<>"']/g, char =>
     ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
   const school = schoolName || document.getElementById('tbSchool').textContent || 'โรงเรียนบ้านคลอง 14';
+  const rows = sortRecordStudents(students).map((s, i) => [i + 1, s.cls, s.code,
+    `${s.prefix}${s.firstName} ${s.lastName}`.trim()]);
   const body = rows.map(row => `<tr>${row.map(value => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`).join('');
-  const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายชื่อนักเรียนที่เลือก</title>
+  const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
     <style>@page{size:A4 portrait;margin:12mm}body{font-family:Sarabun,sans-serif;color:#111}
     h1,h2,p{text-align:center;margin:0}h1{font-size:16pt}h2{font-size:14pt;margin-top:3mm}p{font-size:10pt;margin:2mm 0 7mm}
     table{border-collapse:collapse;width:100%;font-size:11pt}th,td{border:1px solid #333;padding:5px 7px}
     th:nth-child(1),td:nth-child(1){width:8%;text-align:center}th:nth-child(2),td:nth-child(2){width:13%;text-align:center}
     th:nth-child(3),td:nth-child(3){width:18%;text-align:center}thead{display:table-header-group}tr{break-inside:avoid}</style>
-    </head><body><h1>${escapeHtml(school)}</h1><h2>รายชื่อนักเรียนที่เลือก</h2><p>รวม ${rows.length} คน</p>
+    </head><body><h1>${escapeHtml(school)}</h1><h2>${escapeHtml(title)}</h2><p>${escapeHtml(details)}${details ? ' · ' : ''}รวม ${rows.length} คน</p>
     <table><thead><tr><th>ลำดับ</th><th>ชั้น</th><th>รหัสนักเรียน</th><th>ชื่อ-นามสกุล</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
   const printWindow = window.open('', '_blank');
   if (!printWindow) return toast('กรุณาอนุญาต Pop-up ก่อนพิมพ์', 'err');
@@ -1183,6 +1191,13 @@ function printPicked() {
   printWindow.document.close();
   const ready = printWindow.document.fonts ? printWindow.document.fonts.ready : Promise.resolve();
   ready.then(() => { printWindow.focus(); printWindow.print(); });
+}
+
+function sortRecordStudents(students) {
+  return [...students].sort((a, b) => {
+    const rank = cls => { const i = classOrder.indexOf(cls); return i < 0 ? classOrder.length : i; };
+    return rank(a.cls) - rank(b.cls);
+  });
 }
 
 function updateRecordFields() {
@@ -1243,11 +1258,161 @@ function renderRecordHistory() {
       summary.textContent = `${record.date} · ${labels[record.type] || record.type}${title} (${record.students.length} คน)`;
       details.appendChild(summary);
       if (record.note) { const note = document.createElement('div'); note.textContent = record.note; details.appendChild(note); }
-      record.students.forEach(s => {
+      sortRecordStudents(record.students).forEach(s => {
         const line = document.createElement('div');
         line.textContent = `${s.cls} ${s.prefix}${s.firstName} ${s.lastName}`;
         details.appendChild(line);
       });
+      const actions = document.createElement('div');
+      actions.className = 'pick-actions';
+      [['พิมพ์', () => printHistoryRecord(record.id)],
+       ['แก้ไข', () => openRecordEditor(record.id)],
+       ['ลบ', () => deleteHistoryRecord(record.id)]].forEach(([label, handler]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn';
+        button.textContent = label;
+        button.addEventListener('click', handler);
+        actions.appendChild(button);
+      });
+      details.appendChild(actions);
       list.appendChild(details);
     });
+}
+
+function historyRecord(id) { return loadedRecords.find(record => record.id === id); }
+
+function printHistoryRecord(id) {
+  const record = historyRecord(id);
+  if (!record) return toast('ไม่พบรายการนี้ กรุณาโหลดประวัติใหม่', 'err');
+  const labels = { activity: record.name || 'กิจกรรม', late: 'นักเรียนมาสาย', conduct: 'นักเรียนผิดระเบียบ' };
+  const details = [record.date, record.note].filter(Boolean).join(' · ');
+  printStudentList(record.students, labels[record.type] || 'รายชื่อนักเรียน', details);
+}
+
+function studentIdentity(student) {
+  return [student.cls, student.code, student.prefix, student.firstName, student.lastName].join('\u001f');
+}
+
+function openRecordEditor(id) {
+  const record = historyRecord(id);
+  if (!record) return toast('ไม่พบรายการนี้ กรุณาโหลดประวัติใหม่', 'err');
+  editingRecordId = id;
+  editingStudents = record.students.map(s => ({ ...s }));
+  const classSelect = document.getElementById('editClass');
+  classSelect.replaceChildren(new Option('ทุกชั้น', ''));
+  classOrder.filter(cls => allData.some(s => s['ชั้น'] === cls))
+    .forEach(cls => classSelect.add(new Option(cls, cls)));
+  document.getElementById('editSearch').value = '';
+  document.getElementById('editType').value = record.type;
+  document.getElementById('editDate').value = record.date;
+  document.getElementById('editName').value = record.type === 'activity' ? record.name : '';
+  document.getElementById('editNote').value = record.note || '';
+  updateEditFields();
+  renderEditCandidates();
+  renderEditingStudents();
+  document.getElementById('editOverlay').classList.add('show');
+}
+
+function closeRecordEditor() {
+  document.getElementById('editOverlay').classList.remove('show');
+  editingRecordId = '';
+  editingStudents = [];
+}
+
+function updateEditFields() {
+  document.getElementById('editNameWrap').style.display =
+    document.getElementById('editType').value === 'activity' ? 'block' : 'none';
+}
+
+function renderEditCandidates() {
+  const cls = document.getElementById('editClass').value;
+  const query = document.getElementById('editSearch').value.trim().toLocaleLowerCase('th');
+  const list = document.getElementById('editCandidates');
+  list.replaceChildren();
+  let count = 0;
+  allData.forEach(s => {
+    if (cls && s['ชั้น'] !== cls) return;
+    const student = { cls: s['ชั้น'] || '', room: s['ห้อง'] || '', code: s['รหัสนักเรียน'] || '',
+      prefix: s['คำนำหน้าชื่อ'] || '', firstName: s['ชื่อ'] || '', lastName: s['นามสกุล'] || '' };
+    const name = `${student.prefix}${student.firstName} ${student.lastName}`.trim();
+    if (query && !`${name} ${student.code}`.toLocaleLowerCase('th').includes(query)) return;
+    count++;
+    const row = document.createElement('label');
+    row.className = 'pick-row';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = editingStudents.some(existing => studentIdentity(existing) === studentIdentity(student));
+    box.addEventListener('change', () => {
+      if (box.checked) editingStudents.push(student);
+      else editingStudents = editingStudents.filter(existing => studentIdentity(existing) !== studentIdentity(student));
+      renderEditingStudents();
+    });
+    const label = document.createElement('span');
+    label.textContent = name;
+    const meta = document.createElement('small');
+    meta.textContent = `${student.cls} · ${student.code}`;
+    row.append(box, label, meta);
+    list.appendChild(row);
+  });
+  document.getElementById('editResultCount').textContent = `พบ ${count} คน`;
+}
+
+function renderEditingStudents() {
+  editingStudents = sortRecordStudents(editingStudents);
+  document.getElementById('editCount').textContent = `ในรายการ ${editingStudents.length} คน`;
+  const list = document.getElementById('editSelected');
+  list.replaceChildren();
+  if (!editingStudents.length) { list.textContent = 'ยังไม่มีนักเรียนในรายการ'; return; }
+  editingStudents.forEach((student, index) => {
+    const row = document.createElement('div');
+    row.className = 'edit-selected-row';
+    const name = document.createElement('span');
+    name.textContent = `${student.cls} ${student.prefix}${student.firstName} ${student.lastName}`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn';
+    remove.textContent = 'นำออก';
+    remove.setAttribute('aria-label', `นำ ${name.textContent} ออกจากรายการ`);
+    remove.addEventListener('click', () => {
+      editingStudents.splice(index, 1);
+      renderEditingStudents();
+      renderEditCandidates();
+    });
+    row.append(name, remove);
+    list.appendChild(row);
+  });
+}
+
+async function saveEditedRecord() {
+  if (!editingRecordId || !pickerPin) return toast('กรุณาเปิดรายการอีกครั้ง', 'err');
+  const type = document.getElementById('editType').value;
+  const record = { type, date: document.getElementById('editDate').value,
+    name: type === 'activity' ? document.getElementById('editName').value.trim() : '',
+    note: document.getElementById('editNote').value.trim(), students: editingStudents };
+  if (!record.students.length || !record.date || (type === 'activity' && !record.name))
+    return toast('กรอกวันที่ ชื่อกิจกรรม (ถ้ามี) และเลือกนักเรียนอย่างน้อย 1 คน', 'err');
+  const button = document.getElementById('editSaveBtn');
+  button.disabled = true;
+  try {
+    const result = await recordRequest({ action: 'updateRecord', id: editingRecordId, record, pin: pickerPin });
+    if (!result.success) throw new Error(result.message || 'แก้ไขไม่สำเร็จ');
+    closeRecordEditor();
+    toast(result.message, 'ok');
+    await loadRecords();
+  } catch (e) { toast(e.message, 'err'); }
+  finally { button.disabled = false; }
+}
+
+async function deleteHistoryRecord(id) {
+  const record = historyRecord(id);
+  if (!record || !pickerPin) return toast('กรุณาโหลดประวัติใหม่', 'err');
+  const title = record.type === 'activity' ? record.name : (record.type === 'late' ? 'มาสาย' : 'ผิดระเบียบ');
+  if (!window.confirm(`ลบรายการ “${title}” วันที่ ${record.date} จำนวน ${record.students.length} คน?`)) return;
+  try {
+    const result = await recordRequest({ action: 'deleteRecord', id, pin: pickerPin });
+    if (!result.success) throw new Error(result.message || 'ลบไม่สำเร็จ');
+    toast(result.message, 'ok');
+    await loadRecords();
+  } catch (e) { toast(e.message, 'err'); }
 }

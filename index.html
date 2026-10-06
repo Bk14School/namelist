@@ -294,6 +294,9 @@ tbody tr.female{background:#FFFAFC}
 .pick-side label{display:block;font-size:12px;color:var(--gray-700);margin:10px 0 4px}
 .pick-side h3{font-size:14px;margin:14px 0 6px}
 .pick-selected,.pick-history{font-size:13px;line-height:1.7;max-height:125px;overflow:auto;background:#fff;border:1px solid var(--gray-200);border-radius:7px;padding:8px}
+.pick-history{max-height:250px}
+.edit-selected-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--gray-100)}
+.edit-selected-row .btn{flex-shrink:0}
 .pick-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .pick-muted{color:var(--gray-500);font-size:12px}
 @media(max-width:700px){.pick-body{display:flex;flex-direction:column}.pick-list{min-height:45%;flex:1}.pick-side{border-left:none;border-top:1px solid var(--gray-200);min-height:45%;flex:1}}
@@ -596,6 +599,29 @@ tbody tr.female{background:#FFFAFC}
   </div>
 </div>
 
+<!-- แก้ไขรายการประวัติ -->
+<div class="pick-overlay" id="editOverlay" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+  <div class="pick-modal">
+    <div class="pick-head"><h2 id="editTitle">แก้ไขรายการ</h2><button class="btn" onclick="closeRecordEditor()">ปิด</button></div>
+    <div class="pick-body">
+      <div class="pick-list">
+        <div class="pick-filters"><select id="editClass" onchange="renderEditCandidates()" aria-label="กรองตามชั้น"><option value="">ทุกชั้น</option></select><input id="editSearch" type="search" oninput="renderEditCandidates()" placeholder="ค้นหาชื่อหรือรหัสนักเรียน" aria-label="ค้นหานักเรียนเพื่อเพิ่ม"></div>
+        <div class="pick-muted" id="editResultCount"></div>
+        <div id="editCandidates"></div>
+      </div>
+      <div class="pick-side">
+        <strong id="editCount">ในรายการ 0 คน</strong>
+        <div class="pick-selected" id="editSelected"></div>
+        <label for="editType">ประเภท</label><select id="editType" onchange="updateEditFields()"><option value="activity">กิจกรรม</option><option value="late">มาสาย</option><option value="conduct">ผิดระเบียบ</option></select>
+        <label for="editDate">วันที่</label><input id="editDate" type="date">
+        <div id="editNameWrap"><label for="editName">ชื่อกิจกรรม</label><input id="editName" type="text" maxlength="120"></div>
+        <label for="editNote">หมายเหตุ</label><textarea id="editNote" rows="2" maxlength="500"></textarea>
+        <div class="pick-actions"><button class="btn primary" id="editSaveBtn" onclick="saveEditedRecord()">บันทึกการแก้ไข</button><button class="btn" onclick="closeRecordEditor()">ยกเลิก</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Print Preview Modal -->
 <div class="pp-overlay" id="ppOverlay">
   <div class="pp-modal">
@@ -761,6 +787,6 @@ tbody tr.female{background:#FFFAFC}
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js?v=20261006-5"></script>
+<script src="app.js?v=20261006-6"></script>
 </body>
 </html>
