@@ -346,13 +346,13 @@ function printLeaveGroup(token) {
   if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
   const popup = window.open('', '_blank');
   if (!popup) return toast('เบราว์เซอร์ปิดกั้นหน้าพิมพ์ กรุณาอนุญาตหน้าต่างใหม่', 'err');
-  const pages = requests.map(request => `<article class="page">${leavePrintCopy(request)}</article>`).join('');
+  const pages = requests.map(request => `<article class="page">${leavePrintCopy(request)}${leavePrintCopy(request)}</article>`).join('');
   popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap"><style>
-    @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:12pt;line-height:1.4}
-    .page{break-after:page}.page:last-child{break-after:auto}.copy{padding:8mm 6mm;break-inside:avoid}
-    h2{text-align:center;font-size:16pt;margin:0}.school{text-align:center;font-size:11pt;margin:0 0 3mm}.date{text-align:right;margin:0 0 3mm}p{margin:2mm 0}.indent{text-indent:10mm}.sign{display:flex;justify-content:flex-end;align-items:flex-start;gap:1.5mm;margin:5mm 4mm 7mm 0}.sign-line{text-align:center;white-space:nowrap}
-    .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:11pt}.boxes>div{min-height:42mm;padding:3mm 4mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.box-signature{margin-top:8mm}.guardian-signature{margin-top:7mm}.guardian-name-line{margin-top:5mm}.guardian-role{margin-top:1mm}.guardian-note{display:block;margin-top:1mm;font-size:8pt}.note{font-size:10pt}small{font-size:9pt}
-    @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:12mm;box-shadow:0 2px 12px #aaa}}
+    @page{size:A4;margin:10mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:11pt;line-height:1.35}
+    .page{break-after:page}.page:last-child{break-after:auto}.copy{height:138mm;overflow:hidden;padding:3mm 2mm;border-bottom:1px dashed #aaa}.copy:last-child{border-bottom:0}
+    h2{text-align:center;font-size:14pt;margin:0}.school{text-align:center;font-size:10pt;margin:0 0 2mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.2mm 0}.indent{text-indent:10mm}.sign{display:flex;justify-content:flex-end;align-items:flex-start;gap:1.5mm;margin:2mm 4mm 2mm 0}.sign-line{text-align:center;white-space:nowrap}
+    .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:9.5pt}.boxes>div{min-height:31mm;padding:2mm 3mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.box-signature{margin-top:5mm}.guardian-signature{margin-top:7mm}.guardian-name-line{margin-top:5mm}.guardian-role{margin-top:1mm}.guardian-note{display:block;margin-top:1mm;font-size:8pt}.note{font-size:9pt}small{font-size:8pt}
+    @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:10mm;box-shadow:0 2px 12px #aaa}}
   </style></head><body>${pages}</body></html>`);
   popup.document.close();
   popup.focus();
