@@ -44,4 +44,34 @@ assert.equal((printed.match(/<section class="copy">/g) || []).length, 2);
 assert.match(printed, /@page\{size:A4/);
 assert.match(printed, /\.copy\{height:138mm;overflow:hidden;padding:3mm 2mm;border-bottom:1px dashed/);
 assert.match(printed, /\.guardian-signature\{margin-top:7mm\}\.guardian-name-line\{margin-top:5mm\}\.guardian-role\{margin-top:1mm\}/);
-console.log('Leave print content OK');
+assert.equal((context.leavePrintDocument([request]).match(/<section class="copy">/g) || []).length, 2);
+
+let imageCount = 0;
+let openedPdf = '';
+let pageCount = 1;
+const pdfPopup = {
+  document: {
+    write() {}, close() {},
+    documentElement: { scrollWidth: 800 },
+    fonts: { ready: Promise.resolve(), load: () => Promise.resolve() },
+    querySelectorAll: () => [{}, {}]
+  },
+  focus() {}, location: { replace(value) { openedPdf = value; } }
+};
+context.window = {
+  open: () => pdfPopup,
+  html2canvas: async () => ({ toDataURL: () => 'data:image/jpeg;base64,dGVzdA==' }),
+  jspdf: { jsPDF: class {
+    addPage() { pageCount++; }
+    addImage() { imageCount++; }
+    output(type) { assert.equal(type, 'blob'); return 'pdf-blob'; }
+  } }
+};
+context.URL = { createObjectURL: () => 'blob:leave-pdf', revokeObjectURL() {} };
+context.setTimeout = () => 1;
+context.openLeavePdf('test-token').then(() => {
+  assert.equal(imageCount, 2);
+  assert.equal(pageCount, 2);
+  assert.equal(openedPdf, 'blob:leave-pdf');
+  console.log('Leave print and PDF content OK');
+}).catch(error => { console.error(error); process.exitCode = 1; });

@@ -286,7 +286,7 @@ function renderLeaveHistory() {
     const names = document.createElement('div');
     names.textContent = requests.map(r => `${r.student.cls} ${leaveName(r.student)} (${r.status})`).join(' · ');
     const actions = document.createElement('div'); actions.className = 'pick-actions';
-    [['พิมพ์ใบขอ', () => printLeaveGroup(token)], ['ส่ง LINE', () => shareLeaveGroup(token, requests.length)],
+    [['พิมพ์ใบขอ', () => printLeaveGroup(token)], ['เปิด PDF', () => openLeavePdf(token)], ['ส่ง LINE', () => shareLeaveGroup(token, requests.length)],
       ['คัดลอกลิงก์', () => copyLeaveLink(token)]].forEach(([label, handler]) => {
       const button = document.createElement('button'); button.className = 'btn'; button.type = 'button';
       button.textContent = label; button.addEventListener('click', handler); actions.append(button);
@@ -341,22 +341,86 @@ function leavePrintCopy(request) {
   </section>`;
 }
 
-function printLeaveGroup(token) {
-  const requests = leaveRequests.filter(request => request.token === token).sort(leaveOrder);
-  if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
-  const popup = window.open('', '_blank');
-  if (!popup) return toast('เบราว์เซอร์ปิดกั้นหน้าพิมพ์ กรุณาอนุญาตหน้าต่างใหม่', 'err');
+function leavePrintDocument(requests) {
   const pages = requests.map(request => `<article class="page">${leavePrintCopy(request)}${leavePrintCopy(request)}</article>`).join('');
-  popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap"><style>
+  return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap"><style>
     @page{size:A4;margin:10mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:11pt;line-height:1.35}
     .page{break-after:page}.page:last-child{break-after:auto}.copy{height:138mm;overflow:hidden;padding:3mm 2mm;border-bottom:1px dashed #aaa}.copy:last-child{border-bottom:0}
     h2{text-align:center;font-size:14pt;margin:0}.school{text-align:center;font-size:10pt;margin:0 0 2mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.2mm 0}.indent{text-indent:10mm}.sign{display:flex;justify-content:flex-end;align-items:flex-start;gap:1.5mm;margin:2mm 4mm 2mm 0}.sign-line{text-align:center;white-space:nowrap}
     .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:9.5pt}.boxes>div{min-height:31mm;padding:2mm 3mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.box-signature{margin-top:5mm}.guardian-signature{margin-top:7mm}.guardian-name-line{margin-top:5mm}.guardian-role{margin-top:1mm}.guardian-note{display:block;margin-top:1mm;font-size:8pt}.note{font-size:9pt}small{font-size:8pt}
     @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:10mm;box-shadow:0 2px 12px #aaa}}
-  </style></head><body>${pages}</body></html>`);
+  </style></head><body>${pages}</body></html>`;
+}
+
+function leaveGroupRequests(token) {
+  return leaveRequests.filter(request => request.token === token).sort(leaveOrder);
+}
+
+function openLeaveDocument(requests) {
+  const popup = window.open('', '_blank');
+  if (!popup) { toast('เบราว์เซอร์ปิดกั้นหน้าต่างใหม่ กรุณาอนุญาตหน้าต่างใหม่', 'err'); return null; }
+  popup.document.write(leavePrintDocument(requests));
   popup.document.close();
   popup.focus();
+  return popup;
+}
+
+function printLeaveGroup(token) {
+  const requests = leaveGroupRequests(token);
+  if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
+  const popup = openLeaveDocument(requests);
+  if (!popup) return;
   popup.document.fonts.ready.then(() => popup.print(), () => popup.print());
+}
+
+let leavePdfLibrariesPromise;
+function loadLeavePdfScript(src, ready) {
+  if (ready()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => ready() ? resolve() : reject(new Error('โหลดเครื่องมือ PDF ไม่สำเร็จ'));
+    script.onerror = () => reject(new Error('โหลดเครื่องมือ PDF ไม่สำเร็จ'));
+    document.head.append(script);
+  });
+}
+
+function loadLeavePdfLibraries() {
+  if (!leavePdfLibrariesPromise) {
+    leavePdfLibrariesPromise = Promise.all([
+      loadLeavePdfScript('vendor/html2canvas-1.4.1.min.js', () => !!window.html2canvas),
+      loadLeavePdfScript('vendor/jspdf-4.2.1.umd.min.js', () => !!window.jspdf?.jsPDF)
+    ]).catch(error => { leavePdfLibrariesPromise = null; throw error; });
+  }
+  return leavePdfLibrariesPromise;
+}
+
+async function openLeavePdf(token) {
+  const requests = leaveGroupRequests(token);
+  if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
+  const popup = openLeaveDocument(requests);
+  if (!popup) return;
+  try {
+    await loadLeavePdfLibraries();
+    await popup.document.fonts.ready;
+    await popup.document.fonts.load('11pt Sarabun');
+    const pdf = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const pages = popup.document.querySelectorAll('.page');
+    for (let i = 0; i < pages.length; i++) {
+      if (i) pdf.addPage();
+      const canvas = await window.html2canvas(pages[i], {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        windowWidth: Math.max(1000, popup.document.documentElement.scrollWidth)
+      });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+    }
+    const pdfUrl = URL.createObjectURL(pdf.output('blob'));
+    popup.location.replace(pdfUrl);
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 5 * 60 * 1000);
+  } catch (error) {
+    popup.document.body.insertAdjacentHTML('afterbegin', '<p style="padding:12px;background:#fff4e5;text-align:center">สร้าง PDF ไม่สำเร็จ กรุณากลับไปใช้ปุ่มพิมพ์ใบขอ</p>');
+    toast(error.message || 'สร้าง PDF ไม่สำเร็จ', 'err');
+  }
 }
 
 async function unlockLeaveApproval(event) {
