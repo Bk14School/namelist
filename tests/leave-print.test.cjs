@@ -13,11 +13,12 @@ const request = {
   reason: 'ไปติดต่อราชการ', destination: 'อำเภอ',
   advisorOpinion: 'อนุญาต', affairsOpinion: 'ไม่อนุญาต',
   affairsTeacher: 'ครูฝ่ายกิจการ', homeroomTeacher: 'ครูประจำชั้น', deputyName: 'รองผู้อำนวยการ',
-  status: 'รอพิจารณา'
+  status: 'รอพิจารณา', guardianPhone: '081-234-5678', token: 'test-token'
 };
 const html = context.leavePrintCopy(request);
 assert.match(html, /โรงเรียนบ้านคลอง 14 สพป\.นครนายก/);
 assert.match(html, /ไม่กลับเข้ามาในโรงเรียนในวันนั้น/);
+assert.match(html, /เบอร์โทรติดต่อผู้ปกครอง <b>081-234-5678<\/b>/);
 assert.doesNotMatch(html, /กลับเข้ามาในโรงเรียนเวลา/);
 assert.match(html, /พิจารณาเห็นควรว่า ☑ อนุญาต ☐ ไม่อนุญาต/);
 assert.match(html, /พิจารณาเห็นควรว่า ☐ อนุญาต ☑ ไม่อนุญาต/);
@@ -32,4 +33,12 @@ assert.doesNotMatch(context.leavePrintCopy(request), /2026-10-06T23:40:20\.209Z/
 request.noReturn = false;
 request.returnTime = '11:00';
 assert.match(context.leavePrintCopy(request), /กลับเข้ามาในโรงเรียนเวลา <b>11:00<\/b> น\./);
+let printed = '';
+const popup = { document: { write(value) { printed = value; }, close() {}, fonts: { ready: Promise.resolve() } }, focus() {}, print() {} };
+context.window = { open() { return popup; } };
+context.printRequest = request;
+vm.runInContext('leaveRequests = [printRequest]', context);
+context.printLeaveGroup('test-token');
+assert.equal((printed.match(/<section class="copy">/g) || []).length, 1);
+assert.match(printed, /@page\{size:A4/);
 console.log('Leave print content OK');

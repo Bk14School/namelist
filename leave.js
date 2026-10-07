@@ -126,7 +126,7 @@ function syncLeaveDrafts() {
   [...leaveDrafts.keys()].forEach(index => { if (!selected.has(index)) leaveDrafts.delete(index); });
   [...selected].forEach(index => {
     if (allData[index] && !leaveDrafts.has(index))
-      leaveDrafts.set(index, { student: leaveStudent(index), ...leaveCommon(), guardianName: '', parentPickup: false });
+      leaveDrafts.set(index, { student: leaveStudent(index), ...leaveCommon(), guardianName: '', guardianPhone: '', parentPickup: false });
   });
 }
 
@@ -167,7 +167,8 @@ function renderLeaveDrafts() {
     ['outTime', 'เวลาออก', 'time'], ['returnTime', 'เวลากลับ', 'time'],
     ['advisorOpinion', 'ความเห็นครูที่ปรึกษา', 'opinion'], ['affairsOpinion', 'ความเห็นครูฝ่ายกิจการ', 'opinion'],
     ['reason', 'ธุระ', 'textarea'], ['destination', 'สถานที่ติดต่อ', 'text'],
-    ['guardianName', 'ชื่อผู้ปกครอง (ถ้ามารับ)', 'text']
+    ['guardianName', 'ชื่อผู้ปกครอง (ถ้ามารับ)', 'text'],
+    ['guardianPhone', 'เบอร์โทรผู้ปกครอง (ไม่บังคับ)', 'tel']
   ];
   indices.forEach((index, position) => {
     const draft = leaveDrafts.get(index);
@@ -194,6 +195,7 @@ function renderLeaveDrafts() {
         input = document.createElement('input'); input.type = kind;
         if (field === 'destination') input.maxLength = 300;
         if (field === 'guardianName') input.maxLength = 120;
+        if (field === 'guardianPhone') { input.maxLength = 30; input.inputMode = 'tel'; }
       }
       input.value = draft[field] || '';
       if (field === 'returnTime') input.disabled = !!draft.noReturn;
@@ -223,6 +225,8 @@ async function createLeaveRequests() {
   if (!requests.length) return toast('กรุณาเลือกนักเรียนก่อน', 'err');
   const missing = requests.find(d => !d.date || !d.outTime || (!d.noReturn && !d.returnTime) || !d.reason.trim() || !d.destination.trim() || !d.affairsTeacher || !d.advisorOpinion || !d.affairsOpinion);
   if (missing) return toast(`กรอกข้อมูลของ ${leaveName(missing.student)} ให้ครบ`, 'err');
+  const invalidPhone = requests.find(d => d.guardianPhone?.trim() && !/^[+0-9()\-\s]{1,30}$/.test(d.guardianPhone.trim()));
+  if (invalidPhone) return toast(`ตรวจเบอร์โทรผู้ปกครองของ ${leaveName(invalidPhone.student)}`, 'err');
   const button = document.getElementById('leaveCreateBtn'); button.disabled = true;
   try {
     const result = await bridgeRequest({ action: 'createLeaveBatch', requests, pin: pickerPin });
@@ -325,6 +329,7 @@ function leavePrintCopy(request) {
     <p>มีความประสงค์ขออนุญาตออกนอกบริเวณโรงเรียน ตั้งแต่เวลา <b>${leaveEscape(request.outTime)}</b> น. ${returnText}</p>
     <p>ทั้งนี้เพื่อไปทำธุระเรื่อง <b>${leaveEscape(request.reason)}</b></p>
     <p>สถานที่ไปติดต่อ <b>${leaveEscape(request.destination)}</b></p>
+    ${request.guardianPhone ? `<p>เบอร์โทรติดต่อผู้ปกครอง <b>${leaveEscape(request.guardianPhone)}</b></p>` : ''}
     <p class="sign"><span>ลงชื่อ</span><span class="sign-line">........................................<br>(${leaveEscape(leaveName(s))})</span><span>นักเรียนผู้ขออนุญาต</span></p>
     <div class="boxes">
       <div>พิจารณาเห็นควรว่า ${choice(request.advisorOpinion, 'อนุญาต')} อนุญาต ${choice(request.advisorOpinion, 'ไม่อนุญาต')} ไม่อนุญาต<div class="box-signature">ลงชื่อ ........................................</div>(${leaveEscape(request.homeroomTeacher || '........................................')})<br>ครูที่ปรึกษา/ครูผู้สอน</div>
@@ -341,13 +346,13 @@ function printLeaveGroup(token) {
   if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
   const popup = window.open('', '_blank');
   if (!popup) return toast('เบราว์เซอร์ปิดกั้นหน้าพิมพ์ กรุณาอนุญาตหน้าต่างใหม่', 'err');
-  const pages = requests.map(request => `<article class="page">${leavePrintCopy(request)}${leavePrintCopy(request)}</article>`).join('');
+  const pages = requests.map(request => `<article class="page">${leavePrintCopy(request)}</article>`).join('');
   popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบขออนุญาตออกนอกบริเวณโรงเรียน</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap"><style>
-    @page{size:A4;margin:10mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:11pt;line-height:1.35}
-    .page{break-after:page}.page:last-child{break-after:auto}.copy{height:138mm;overflow:hidden;padding:3mm 2mm;border-bottom:1px dashed #aaa}.copy:last-child{border-bottom:0}
-    h2{text-align:center;font-size:14pt;margin:0}.school{text-align:center;font-size:10pt;margin:0 0 2mm}.date{text-align:right;margin:0 0 2mm}p{margin:1.5mm 0}.indent{text-indent:10mm}.sign{display:flex;justify-content:flex-end;align-items:flex-start;gap:1.5mm;margin:2mm 4mm 2mm 0}.sign-line{text-align:center;white-space:nowrap}
-    .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:9.5pt}.boxes>div{min-height:31mm;padding:2mm 3mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.box-signature{margin-top:5mm}.guardian-signature{margin-top:10mm}.note{font-size:9pt}small{font-size:8pt}
-    @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:10mm;box-shadow:0 2px 12px #aaa}}
+    @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:"Sarabun",sans-serif;color:#111;margin:0;font-size:12pt;line-height:1.4}
+    .page{break-after:page}.page:last-child{break-after:auto}.copy{padding:8mm 6mm;break-inside:avoid}
+    h2{text-align:center;font-size:16pt;margin:0}.school{text-align:center;font-size:11pt;margin:0 0 3mm}.date{text-align:right;margin:0 0 3mm}p{margin:2mm 0}.indent{text-indent:10mm}.sign{display:flex;justify-content:flex-end;align-items:flex-start;gap:1.5mm;margin:5mm 4mm 7mm 0}.sign-line{text-align:center;white-space:nowrap}
+    .boxes{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;font-size:11pt}.boxes>div{min-height:42mm;padding:3mm 4mm;text-align:center;border-right:1px solid #222;border-bottom:1px solid #222}.boxes>div:nth-child(2n){border-right:0}.boxes>div:nth-child(n+3){border-bottom:0}.box-signature{margin-top:8mm}.guardian-signature{margin-top:15mm}.note{font-size:10pt}small{font-size:9pt}
+    @media screen{body{background:#ddd}.page{width:210mm;min-height:297mm;background:white;margin:12px auto;padding:12mm;box-shadow:0 2px 12px #aaa}}
   </style></head><body>${pages}</body></html>`);
   popup.document.close();
   popup.focus();
@@ -384,6 +389,7 @@ function renderLeaveApproval() {
     card.innerHTML = `<h3>${index + 1}. ${leaveEscape(leaveName(request.student))} · ${leaveEscape(request.student.cls)}${request.student.room ? '/' + leaveEscape(request.student.room) : ''}</h3>
       <p>วันที่ ${thaiLeaveDate(request.date)} · ออก ${leaveEscape(request.outTime)} น. · ${request.noReturn ? 'ไม่กลับเข้ามาในวันนั้น' : `กลับ ${leaveEscape(request.returnTime)} น.`}</p>
       <p>ธุระ: ${leaveEscape(request.reason)}<br>สถานที่: ${leaveEscape(request.destination)}</p>
+      ${request.guardianPhone ? `<p>เบอร์โทรผู้ปกครอง: ${leaveEscape(request.guardianPhone)}</p>` : ''}
       <p>ครูฝ่ายกิจการ: ${leaveEscape(request.affairsTeacher)} · ครูประจำชั้น: ${leaveEscape(request.homeroomTeacher || 'ยังไม่ได้ตั้งค่า')}</p>
       <p>ครูที่ปรึกษาเห็นควร: ${leaveEscape(request.advisorOpinion || 'ยังไม่ระบุ')} · ครูฝ่ายกิจการเห็นควร: ${leaveEscape(request.affairsOpinion || 'ยังไม่ระบุ')}</p>
       <strong>สถานะ: ${leaveEscape(request.status)}</strong>`;
