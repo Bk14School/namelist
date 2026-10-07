@@ -27,6 +27,7 @@ assert.match(html, /<p class="sign"><span>ลงชื่อ<\/span><span class=
 assert.match(html, /พิจารณาเห็นควรว่า ☑ อนุญาต ☐ ไม่อนุญาต<div class="box-signature">ลงชื่อ/);
 assert.match(html, /ผลการพิจารณา ☐ อนุญาต ☐ ไม่อนุญาต<div class="box-signature">ลงชื่อ/);
 assert.match(html, /<div class="guardian-signature"><div class="guardian-sign-line">ลงชื่อ \.{68}<\/div><div class="guardian-name-line">\(\.{68}\)<\/div><div class="guardian-role">ผู้ปกครอง/);
+assert.match(html, /<small class="guardian-note">\*ลงชื่อในกรณีที่ผู้ปกครองมารับนักเรียนด้วยตนเอง<\/small>/);
 request.decidedAt = '2026-10-06T23:40:20.209Z';
 assert.match(context.leavePrintCopy(request), /บันทึกผลในระบบ วันพุธที่ 7 ตุลาคม 2569 เวลา 06:40 น\./);
 assert.doesNotMatch(context.leavePrintCopy(request), /2026-10-06T23:40:20\.209Z/);
