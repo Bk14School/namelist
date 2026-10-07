@@ -286,7 +286,8 @@ function renderLeaveHistory() {
     const names = document.createElement('div');
     names.textContent = requests.map(r => `${r.student.cls} ${leaveName(r.student)} (${r.status})`).join(' · ');
     const actions = document.createElement('div'); actions.className = 'pick-actions';
-    [['พิมพ์ใบขอ', () => printLeaveGroup(token)], ['เปิด PDF', () => openLeavePdf(token)], ['ส่ง LINE', () => shareLeaveGroup(token, requests.length)],
+    [['พิมพ์ใบขอ', () => printLeaveGroup(token)], ['เปิด PDF', () => openLeavePdf(token)],
+      ['ดาวน์โหลด PDF', () => downloadLeavePdf(token)], ['ส่ง LINE', () => shareLeaveGroup(token, requests.length)],
       ['คัดลอกลิงก์', () => copyLeaveLink(token)]].forEach(([label, handler]) => {
       const button = document.createElement('button'); button.className = 'btn'; button.type = 'button';
       button.textContent = label; button.addEventListener('click', handler); actions.append(button);
@@ -395,7 +396,11 @@ function loadLeavePdfLibraries() {
   return leavePdfLibrariesPromise;
 }
 
-async function openLeavePdf(token) {
+function downloadLeavePdf(token) {
+  return openLeavePdf(token, true);
+}
+
+async function openLeavePdf(token, download = false) {
   const requests = leaveGroupRequests(token);
   if (!requests.length) return toast('กรุณาโหลดรายการใหม่', 'err');
   const popup = openLeaveDocument(requests);
@@ -415,8 +420,21 @@ async function openLeavePdf(token) {
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
     }
     const pdfUrl = URL.createObjectURL(pdf.output('blob'));
-    popup.location.replace(pdfUrl);
-    setTimeout(() => URL.revokeObjectURL(pdfUrl), 5 * 60 * 1000);
+    if (download) {
+      const filename = `ใบขออนุญาต-${String(requests[0].date).replace(/[^0-9-]/g, '')}-${String(token).replace(/[^a-z0-9-]/gi, '').slice(0, 12)}.pdf`;
+      const message = popup.document.createElement('p');
+      message.textContent = 'ไฟล์ PDF พร้อมดาวน์โหลด หากยังไม่เริ่มดาวน์โหลด ให้แตะปุ่มด้านล่าง';
+      const link = popup.document.createElement('a');
+      link.href = pdfUrl;
+      link.download = filename;
+      link.textContent = 'ดาวน์โหลด PDF';
+      link.style.cssText = 'display:inline-block;padding:12px 20px;background:#176b43;color:white;border-radius:8px;text-decoration:none;font-weight:700';
+      popup.document.body.replaceChildren(message, link);
+      link.click();
+    } else {
+      popup.location.replace(pdfUrl);
+    }
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 30 * 60 * 1000);
   } catch (error) {
     popup.document.body.insertAdjacentHTML('afterbegin', '<p style="padding:12px;background:#fff4e5;text-align:center">สร้าง PDF ไม่สำเร็จ กรุณากลับไปใช้ปุ่มพิมพ์ใบขอ</p>');
     toast(error.message || 'สร้าง PDF ไม่สำเร็จ', 'err');

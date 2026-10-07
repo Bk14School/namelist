@@ -49,12 +49,15 @@ assert.equal((context.leavePrintDocument([request]).match(/<section class="copy"
 let imageCount = 0;
 let openedPdf = '';
 let pageCount = 1;
+let downloadLink;
 const pdfPopup = {
   document: {
     write() {}, close() {},
     documentElement: { scrollWidth: 800 },
     fonts: { ready: Promise.resolve(), load: () => Promise.resolve() },
-    querySelectorAll: () => [{}, {}]
+    querySelectorAll: () => [{}, {}],
+    createElement: () => ({ style: {}, click() { this.clicked = true; } }),
+    body: { replaceChildren(_message, link) { downloadLink = link; } }
   },
   focus() {}, location: { replace(value) { openedPdf = value; } }
 };
@@ -69,9 +72,15 @@ context.window = {
 };
 context.URL = { createObjectURL: () => 'blob:leave-pdf', revokeObjectURL() {} };
 context.setTimeout = () => 1;
-context.openLeavePdf('test-token').then(() => {
+context.openLeavePdf('test-token').then(async () => {
   assert.equal(imageCount, 2);
   assert.equal(pageCount, 2);
   assert.equal(openedPdf, 'blob:leave-pdf');
+  await context.downloadLeavePdf('test-token');
+  assert.equal(imageCount, 4);
+  assert.equal(pageCount, 3);
+  assert.equal(downloadLink.href, 'blob:leave-pdf');
+  assert.equal(downloadLink.download, 'ใบขออนุญาต-2026-10-07-test-token.pdf');
+  assert.equal(downloadLink.clicked, true);
   console.log('Leave print and PDF content OK');
 }).catch(error => { console.error(error); process.exitCode = 1; });
