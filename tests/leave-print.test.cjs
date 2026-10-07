@@ -42,5 +42,5 @@ vm.runInContext('leaveRequests = [printRequest]', context);
 context.printLeaveGroup('test-token');
 assert.equal((printed.match(/<section class="copy">/g) || []).length, 1);
 assert.match(printed, /@page\{size:A4/);
-assert.match(printed, /\.guardian-name-line\{margin-top:10mm\}/);
+assert.match(printed, /\.guardian-signature\{margin-top:7mm\}\.guardian-name-line\{margin-top:5mm\}\.guardian-role\{margin-top:1mm\}/);
 console.log('Leave print content OK');
